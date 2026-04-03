@@ -1,0 +1,142 @@
+//! Shared YAML walking utilities for lint rules.
+//!
+//! Provides helpers for parsing and navigating raw `serde_yaml::Value` trees,
+//! used by rules that need to inspect fields across both typed and untyped sections.
+
+use serde_yaml::Value;
+
+/// Parse YAML source, returning None on failure (rules skip unparseable files).
+pub fn parse_yaml(source: &str) -> Option<Value> {
+    serde_yaml::from_str(source).ok()
+}
+
+/// Walk a `serde_yaml::Value` tree along a path of keys (e.g., `["software", "packages"]`)
+/// and return all array items found at that path.
+pub fn collect_items_at_path<'a>(root: &'a Value, path: &[&str]) -> Vec<&'a Value> {
+    let mut current = root;
+
+    for &key in path {
+        match current {
+            Value::Mapping(map) => match map.get(Value::String(key.to_string())) {
+                Some(v) => current = v,
+                None => return Vec::new(),
+            },
+            _ => return Vec::new(),
+        }
+    }
+
+    // The final node should be a sequence
+    match current {
+        Value::Sequence(seq) => seq.iter().collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Check if a `serde_yaml::Value::Mapping` contains a given key.
+pub fn mapping_has_key(value: &Value, key: &str) -> bool {
+    match value {
+        Value::Mapping(map) => map.contains_key(Value::String(key.to_string())),
+        _ => false,
+    }
+}
+
+/// Get a string value from a mapping by key.
+pub fn mapping_get_str<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
+    match value {
+        Value::Mapping(map) => map
+            .get(Value::String(key.to_string()))
+            .and_then(|v| v.as_str()),
+        _ => None,
+    }
+}
+
+/// Get a display name for an item (tries name, slug, app_store_id, path in order).
+pub fn item_display_name(value: &Value) -> String {
+    for key in &["name", "slug", "app_store_id", "path"] {
+        if let Some(s) = mapping_get_str(value, key) {
+            return s.to_string();
+        }
+    }
+    "unnamed".to_string()
+}
+
+/// Find the 1-indexed line number of a YAML key in source text.
+/// Searches for the key at the appropriate indentation level.
+/// Returns the first match after `after_line` (0 = search from start).
+pub fn find_key_line(source: &str, key: &str, after_line: usize) -> Option<usize> {
+    let pattern = format!("{}:", key);
+    for (idx, line) in source.lines().enumerate() {
+        if idx < after_line {
+            continue;
+        }
+        let trimmed = line.trim().trim_start_matches('-').trim();
+        if trimmed.starts_with(&pattern) {
+            return Some(idx + 1); // 1-indexed
+        }
+    }
+    None
+}
+
+/// Get all string values from an array field within a mapping.
+pub fn mapping_get_string_array<'a>(value: &'a Value, key: &str) -> Vec<&'a str> {
+    match value {
+        Value::Mapping(map) => map
+            .get(Value::String(key.to_string()))
+            .and_then(|v| v.as_sequence())
+            .map(|seq| seq.iter().filter_map(|v| v.as_str()).collect())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_collect_items_at_path() {
+        let yaml: Value = serde_yaml::from_str(
+            "software:\n  packages:\n    - path: foo.yml\n    - path: bar.yml\n",
+        )
+        .unwrap();
+        let items = collect_items_at_path(&yaml, &["software", "packages"]);
+        assert_eq!(items.len(), 2);
+    }
+
+    #[test]
+    fn test_collect_items_missing_path() {
+        let yaml: Value = serde_yaml::from_str("policies:\n  - name: test\n").unwrap();
+        let items = collect_items_at_path(&yaml, &["software", "packages"]);
+        assert!(items.is_empty());
+    }
+
+    #[test]
+    fn test_mapping_helpers() {
+        let yaml: Value =
+            serde_yaml::from_str("name: test\nplatform: darwin\ncritical: true\n").unwrap();
+        assert!(mapping_has_key(&yaml, "name"));
+        assert!(!mapping_has_key(&yaml, "missing"));
+        assert_eq!(mapping_get_str(&yaml, "name"), Some("test"));
+        assert_eq!(mapping_get_str(&yaml, "missing"), None);
+    }
+
+    #[test]
+    fn test_item_display_name() {
+        let yaml: Value = serde_yaml::from_str("name: My Policy\nquery: SELECT 1\n").unwrap();
+        assert_eq!(item_display_name(&yaml), "My Policy");
+
+        let yaml: Value = serde_yaml::from_str("slug: firefox/darwin\n").unwrap();
+        assert_eq!(item_display_name(&yaml), "firefox/darwin");
+
+        let yaml: Value = serde_yaml::from_str("critical: true\n").unwrap();
+        assert_eq!(item_display_name(&yaml), "unnamed");
+    }
+
+    #[test]
+    fn test_find_key_line() {
+        let source = "policies:\n  - name: test\n    platform: darwin\n";
+        assert_eq!(find_key_line(source, "name", 0), Some(2));
+        assert_eq!(find_key_line(source, "platform", 0), Some(3));
+        assert_eq!(find_key_line(source, "missing", 0), None);
+    }
+}

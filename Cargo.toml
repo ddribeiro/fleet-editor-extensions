@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/flint-lint",
+    "crates/flint-lsp",
+    "cli",
+]
+exclude = [
+    "editors/zed",
+    "fleet-schema-gen",
+]
+
+[workspace.package]
+version = "0.1.2"
+edition = "2021"
