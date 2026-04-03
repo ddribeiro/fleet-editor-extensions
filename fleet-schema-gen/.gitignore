@@ -1,8 +1,0 @@
-/target/
-Cargo.lock
-output/
-schema-defs/base.yml
-*.swp
-*.swo
-*~
-.DS_Store
