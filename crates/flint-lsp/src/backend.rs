@@ -698,6 +698,11 @@ impl LanguageServer for FleetLspBackend {
 
         // Get document content from cache
         if let Some(content) = self.documents.get(&uri) {
+            // Route JSON files to the JSON hover provider
+            if uri.ends_with(".json") {
+                return Ok(super::json_hover::json_hover_at(&content, position, &uri));
+            }
+
             let future_names = self
                 .linter
                 .read()

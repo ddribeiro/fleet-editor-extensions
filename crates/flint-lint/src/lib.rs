@@ -20,6 +20,7 @@ pub mod structural;
 pub mod structure;
 pub mod version;
 pub mod version_gate;
+pub mod yaml_lint;
 pub mod yaml_utils;
 
 pub use config::{ConfigError, FleetConnectionConfig, FleetLintConfig};

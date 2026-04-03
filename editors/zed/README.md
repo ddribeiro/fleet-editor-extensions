@@ -1,4 +1,4 @@
-# Fleet GitOps Zed Extension
+# Flint — Zed Extension
 
 Zed editor extension for Fleet GitOps YAML validation, completions, and diagnostics.
 
@@ -9,52 +9,83 @@ Zed editor extension for Fleet GitOps YAML validation, completions, and diagnost
 - **File Path Completions**: Suggests files when typing `path:` values
 - **Hover Documentation**: Shows documentation on hover for fields and osquery tables
 - **Go-to-Definition**: Navigate to referenced files
+- **Code Actions**: Quick-fixes for deprecated keys and typos
 
 ## Installation
 
-1. Download `fleet-gitops-zed-<version>-<platform>.zip` from [GitHub Releases](https://github.com/headmin/fleetctl-ext/releases)
+### Option A: Dev extension (from zip)
 
-2. Extract to a local folder:
+1. Download `flint-zed-extension-<version>.zip` from [GitHub Releases](https://github.com/headmin/fleet-editor-extensions/releases)
+
+2. Extract:
    ```bash
-   unzip fleet-gitops-zed-0.1.0-darwin-arm64.zip -d ~/fleet-gitops-zed
+   unzip flint-zed-extension-0.1.2.zip -d ~/flint-zed
    ```
 
-3. In Zed:
-   - Open Command Palette (`Cmd+Shift+P`)
-   - Run "zed: install dev extension"
-   - Select the extracted folder (`~/fleet-gitops-zed`)
+3. In Zed: `Cmd+Shift+P` → "zed: install dev extension" → select `~/flint-zed`
 
-4. Open a Fleet GitOps YAML file to verify it's working
+### Option B: From source
 
-## Package Contents
-
+```bash
+git clone https://github.com/headmin/fleet-editor-extensions
+cd fleet-editor-extensions/editors/zed
+# In Zed: "zed: install dev extension" → select this directory
 ```
-fleet-gitops-zed/
-├── extension.toml                    # Extension manifest
-├── extension.wasm                    # Extension logic
-├── bin/
-│   └── fleet-schema-gen-<platform>   # LSP binary
-└── README.md
+
+## Required: Zed Settings
+
+Add to your Zed settings (`Cmd+,`):
+
+```json
+{
+  "languages": {
+    "YAML": {
+      "language_servers": ["flint-lsp"]
+    }
+  }
+}
 ```
+
+This tells Zed to use Flint as the YAML language server. The built-in `yaml-language-server` is not needed and may conflict.
+
+## Prerequisites
+
+Flint must be installed on your system:
+
+```bash
+# Install via script
+curl -fsSL https://raw.githubusercontent.com/headmin/fleet-editor-extensions/main/scripts/install.sh | sh
+
+# Or via PKG (macOS)
+# Download flint-<version>.pkg from GitHub Releases
+```
+
+The extension auto-discovers `flint` from PATH, `~/.cargo/bin`, `/opt/homebrew/bin`, or `/usr/local/bin`.
 
 ## File Patterns
 
-The extension activates for YAML files matching Fleet GitOps patterns:
+The extension activates for YAML files in Fleet GitOps repos:
 - `default.yml` / `default.yaml`
-- `teams/**/*.yml`
-- `lib/**/*.yml`
+- `fleets/**/*.yml`
+- `platforms/**/*.yml`
+- `labels/**/*.yml`
 
 ## Troubleshooting
 
 ### Extension not activating
 
-1. Check Zed logs: `Cmd+Shift+P` → "zed: open log"
-2. Look for "fleet" messages
-3. Try reinstalling via "zed: install dev extension"
+1. Verify `flint` is installed: `which flint && flint --version`
+2. Check Zed settings has `"language_servers": ["flint-lsp"]` under YAML
+3. Check Zed logs: `Cmd+Shift+P` → "zed: open log" → search for "flint"
 
-### Binary not found
+### Hover/completions not working
 
-Ensure the `bin/` directory contains the LSP binary and it's executable:
-```bash
-chmod +x ~/fleet-gitops-zed/bin/fleet-schema-gen-*
+If you see errors from `yaml-language-server`, remove it from the language servers list so only `flint-lsp` is active:
+
+```json
+"languages": {
+  "YAML": {
+    "language_servers": ["flint-lsp"]
+  }
+}
 ```

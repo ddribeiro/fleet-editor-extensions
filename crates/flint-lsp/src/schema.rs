@@ -181,7 +181,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
         "policies.team",
         FieldDoc {
             name: "team",
-            description: "The team this policy belongs to. If not specified, applies to all teams.",
+            description: "The fleet this policy belongs to. If not specified, applies globally.",
             valid_values: None,
             example: Some("team: Engineering"),
             required: false,
@@ -428,12 +428,12 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
         "name",
         FieldDoc {
             name: "name",
-            description: "The name of this configuration file or team.",
+            description: "The name of this configuration file or fleet.",
             valid_values: None,
             example: Some("name: Engineering Team"),
             required: false,
             field_type: "string",
-            cli_hint: Some("fleetctl get teams                     # list all teams\nfleetctl get teams --name \"Name\" --yaml  # export team config"),
+            cli_hint: Some("fleetctl get teams --yaml               # list all fleets\nfleetctl get teams --name \"Name\" --yaml  # export fleet config"),
         },
     );
 
@@ -446,7 +446,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
             example: Some("policies:\n  - name: Disk Encryption\n    query: SELECT 1 FROM disk_encryption WHERE encrypted = 0"),
             required: false,
             field_type: "array",
-            cli_hint: Some("fleetctl get policies --yaml          # export policies\nfleetctl apply -f policies.yml        # apply changes\nfleetctl get policies --team \"Name\"   # team-specific"),
+            cli_hint: Some("fleetctl get policies --yaml          # export policies\nfleetctl apply -f policies.yml        # apply changes\nfleetctl get policies --team \"Name\"   # fleet-specific"),
         },
     );
 
@@ -459,7 +459,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
             example: Some("queries:\n  - name: Running Processes\n    query: SELECT * FROM processes"),
             required: false,
             field_type: "array",
-            cli_hint: Some("fleetctl get queries --yaml          # export queries\nfleetctl apply -f queries.yml        # apply changes\nfleetctl get queries --team \"Name\"   # team-specific"),
+            cli_hint: Some("fleetctl get queries --yaml          # export reports\nfleetctl apply -f reports.yml        # apply changes\nfleetctl get queries --team \"Name\"   # fleet-specific"),
         },
     );
 
@@ -508,7 +508,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
             name: "software",
             description: "Software packages to install or manage on hosts.",
             valid_values: None,
-            example: Some("software:\n  packages:\n    - path: ../lib/software/firefox.yml"),
+            example: Some("software:\n  packages:\n    - path: ../platforms/macos/software/firefox.yml"),
             required: false,
             field_type: "object",
             cli_hint: Some("fleetctl get software --yaml          # export software\nfleetctl apply -f software.yml        # apply changes"),
@@ -524,7 +524,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
             name: "packages",
             description: "List of software packages to install on hosts. Each item references a package definition file via `path`.",
             valid_values: None,
-            example: Some("packages:\n  - path: ../lib/software/firefox.yml\n    self_service: true"),
+            example: Some("packages:\n  - path: ../platforms/macos/software/firefox.yml\n    self_service: true"),
             required: false,
             field_type: "array",
             cli_hint: None,
@@ -537,7 +537,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
             name: "path",
             description: "Path to a YAML file defining the software package (URL, install scripts, etc). Paths are relative to the current file.",
             valid_values: None,
-            example: Some("path: ../lib/macos/software/firefox.yml"),
+            example: Some("path: ../platforms/macos/software/firefox.yml"),
             required: true,
             field_type: "string (file path)",
             cli_hint: None,
@@ -1031,12 +1031,12 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
         "team_settings",
         FieldDoc {
             name: "team_settings",
-            description: "Settings specific to this team.",
+            description: "Settings specific to this fleet. Deprecated: use 'settings' instead.",
             valid_values: None,
             example: Some("team_settings:\n  secrets:\n    - secret: $ENROLL_SECRET"),
             required: false,
             field_type: "object",
-            cli_hint: Some("fleetctl get teams --name \"Name\" --yaml  # export team settings\nfleetctl apply -f team.yml                # apply changes"),
+            cli_hint: Some("fleetctl get teams --name \"Name\" --yaml  # export fleet settings\nfleetctl apply -f fleet.yml               # apply changes"),
         },
     );
 
@@ -1044,7 +1044,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
         "team_settings.secrets",
         FieldDoc {
             name: "secrets",
-            description: "Enrollment secrets for adding hosts to this team.",
+            description: "Enrollment secrets for adding hosts to this fleet.",
             valid_values: None,
             example: Some("secrets:\n  - secret: $ENROLL_SECRET"),
             required: false,
@@ -1057,7 +1057,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
         "team_settings.features",
         FieldDoc {
             name: "features",
-            description: "Feature flags for this team.",
+            description: "Feature flags for this fleet.",
             valid_values: None,
             example: Some(
                 "features:\n  enable_host_users: true\n  enable_software_inventory: true",
@@ -1072,7 +1072,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
         "team_settings.webhook_settings",
         FieldDoc {
             name: "webhook_settings",
-            description: "Webhook configuration for this team.",
+            description: "Webhook configuration for this fleet.",
             valid_values: None,
             example: Some("webhook_settings:\n  failing_policies_webhook:\n    enable_failing_policies_webhook: true"),
             required: false,
@@ -1085,7 +1085,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
         "team_settings.integrations",
         FieldDoc {
             name: "integrations",
-            description: "Third-party integrations for this team (Google Calendar, etc.).",
+            description: "Third-party integrations for this fleet (Google Calendar, etc.).",
             valid_values: None,
             example: Some("integrations:\n  google_calendar:\n    enable_calendar_events: true"),
             required: false,
@@ -1183,7 +1183,7 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
             name: "path",
             description: "Reference to another YAML file containing configuration. Paths are relative to the repository root.",
             valid_values: None,
-            example: Some("- path: lib/policies/security.yml"),
+            example: Some("- path: ../platforms/macos/policies/security.yml"),
             required: false,
             field_type: "string (file path)",
             cli_hint: None,
@@ -1219,6 +1219,300 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
             required: false,
             field_type: "workflow",
             cli_hint: Some("fleetctl gitops -f default.yml          # dry-run (preview changes)\nfleetctl gitops -f default.yml --force  # apply to Fleet instance"),
+        },
+    );
+
+    // =========================================================================
+    // v4.82+ renames
+    // =========================================================================
+
+    m.insert(
+        "reports",
+        FieldDoc {
+            name: "reports",
+            description: "Scheduled queries (reports) for data collection. Renamed from 'queries' in Fleet 4.82+.",
+            valid_values: None,
+            example: Some("reports:\n  - paths: ../platforms/all/reports/*.yml\n  - paths: ../platforms/macos/reports/*.yml"),
+            required: false,
+            field_type: "array",
+            cli_hint: Some("fleetctl get queries --yaml             # export reports"),
+        },
+    );
+
+    m.insert(
+        "settings",
+        FieldDoc {
+            name: "settings",
+            description: "Fleet-level settings (enrollment secrets, features, integrations). Renamed from 'team_settings' in Fleet 4.82+.",
+            valid_values: None,
+            example: Some("settings:\n  secrets:\n    - secret: $ENROLL_SECRET\n  features:\n    enable_host_users: true"),
+            required: false,
+            field_type: "object",
+            cli_hint: Some("fleetctl get teams --name \"Name\" --yaml  # export fleet settings"),
+        },
+    );
+
+    // =========================================================================
+    // Controls nested keys
+    // =========================================================================
+
+    m.insert(
+        "controls.apple_settings",
+        FieldDoc {
+            name: "apple_settings",
+            description: "Apple device settings (macOS, iOS, iPadOS). Contains configuration and declaration profiles. Renamed from 'macos_settings' in Fleet 4.83.",
+            valid_values: None,
+            example: Some("apple_settings:\n  configuration_profiles:\n    - paths: ../platforms/macos/configuration-profiles/*.mobileconfig\n    - paths: ../platforms/macos/declaration-profiles/*.json"),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "controls.windows_settings",
+        FieldDoc {
+            name: "windows_settings",
+            description: "Windows device settings. Contains configuration profiles (.xml CSP profiles).",
+            valid_values: None,
+            example: Some("windows_settings:\n  configuration_profiles:\n    - paths: ../platforms/windows/configuration-profiles/*.xml"),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "controls.android_settings",
+        FieldDoc {
+            name: "android_settings",
+            description:
+                "Android device settings. Contains configuration profiles and certificates.",
+            valid_values: None,
+            example: Some("android_settings:\n  configuration_profiles: []\n  certificates: []"),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "configuration_profiles",
+        FieldDoc {
+            name: "configuration_profiles",
+            description: "MDM configuration profiles to deploy. Renamed from 'custom_settings' in Fleet 4.83. Supports glob patterns with 'paths:'.",
+            valid_values: None,
+            example: Some("configuration_profiles:\n  - paths: ../platforms/macos/configuration-profiles/*.mobileconfig"),
+            required: false,
+            field_type: "array",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "controls.enable_disk_encryption",
+        FieldDoc {
+            name: "enable_disk_encryption",
+            description: "Enable FileVault (macOS) or BitLocker (Windows) disk encryption on managed devices.",
+            valid_values: Some(&["true", "false"]),
+            example: Some("enable_disk_encryption: true"),
+            required: false,
+            field_type: "boolean",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "controls.macos_updates",
+        FieldDoc {
+            name: "macos_updates",
+            description: "macOS software update enforcement settings.",
+            valid_values: None,
+            example: Some("macos_updates:\n  deadline: \"2025-06-15\"\n  minimum_version: \"15.1\"\n  update_new_hosts: true"),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "controls.ios_updates",
+        FieldDoc {
+            name: "ios_updates",
+            description: "iOS software update enforcement settings.",
+            valid_values: None,
+            example: Some("ios_updates:\n  deadline: \"2025-06-15\"\n  minimum_version: \"18.0\""),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "controls.ipados_updates",
+        FieldDoc {
+            name: "ipados_updates",
+            description: "iPadOS software update enforcement settings.",
+            valid_values: None,
+            example: Some(
+                "ipados_updates:\n  deadline: \"2025-06-15\"\n  minimum_version: \"18.0\"",
+            ),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "controls.windows_updates",
+        FieldDoc {
+            name: "windows_updates",
+            description: "Windows update enforcement settings.",
+            valid_values: None,
+            example: Some("windows_updates:\n  deadline_days: 7\n  grace_period_days: 2"),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "controls.scripts",
+        FieldDoc {
+            name: "scripts",
+            description: "Scripts available for execution on managed hosts. Must reference files via path or paths (glob).",
+            valid_values: None,
+            example: Some("scripts:\n  - paths: ../platforms/macos/scripts/*.sh\n  - paths: ../platforms/windows/scripts/*.ps1"),
+            required: false,
+            field_type: "array",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "deadline",
+        FieldDoc {
+            name: "deadline",
+            description: "Date by which the OS update must be installed. Format: YYYY-MM-DD.",
+            valid_values: None,
+            example: Some("deadline: \"2025-06-15\""),
+            required: false,
+            field_type: "string (date)",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "minimum_version",
+        FieldDoc {
+            name: "minimum_version",
+            description:
+                "Minimum required OS version. Hosts below this version will be prompted to update.",
+            valid_values: None,
+            example: Some("minimum_version: \"15.1\""),
+            required: false,
+            field_type: "string",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "update_new_hosts",
+        FieldDoc {
+            name: "update_new_hosts",
+            description: "Whether to enforce OS updates on newly enrolled hosts.",
+            valid_values: Some(&["true", "false"]),
+            example: Some("update_new_hosts: true"),
+            required: false,
+            field_type: "boolean",
+            cli_hint: None,
+        },
+    );
+
+    // =========================================================================
+    // Software nested keys
+    // =========================================================================
+
+    m.insert(
+        "software.fleet_maintained_apps",
+        FieldDoc {
+            name: "fleet_maintained_apps",
+            description: "Fleet-maintained apps installed via slug. Fleet handles install/uninstall scripts and auto-updates.",
+            valid_values: None,
+            example: Some("fleet_maintained_apps:\n  - slug: 1password/darwin\n    self_service: true"),
+            required: false,
+            field_type: "array",
+            cli_hint: Some("See: https://github.com/fleetdm/fleet/tree/main/ee/maintained-apps"),
+        },
+    );
+
+    m.insert(
+        "software.app_store_apps",
+        FieldDoc {
+            name: "app_store_apps",
+            description: "App Store apps deployed via VPP (Volume Purchase Program).",
+            valid_values: None,
+            example: Some("app_store_apps:\n  - app_store_id: \"1091189122\""),
+            required: false,
+            field_type: "array",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "software.packages",
+        FieldDoc {
+            name: "packages",
+            description:
+                "Custom software packages (.pkg, .msi, .deb) with install/uninstall scripts.",
+            valid_values: None,
+            example: Some("packages:\n  - path: ../platforms/macos/software/firefox.yml"),
+            required: false,
+            field_type: "array",
+            cli_hint: None,
+        },
+    );
+
+    m.insert(
+        "slug",
+        FieldDoc {
+            name: "slug",
+            description: "Fleet-maintained app identifier. Format: app-name/platform (e.g., 'santa/darwin', '1password/darwin').",
+            valid_values: None,
+            example: Some("slug: santa/darwin"),
+            required: false,
+            field_type: "string",
+            cli_hint: Some("See: https://github.com/fleetdm/fleet/tree/main/ee/maintained-apps"),
+        },
+    );
+
+    m.insert(
+        "self_service",
+        FieldDoc {
+            name: "self_service",
+            description: "Whether this software is available for users to install via Fleet Desktop self-service.",
+            valid_values: Some(&["true", "false"]),
+            example: Some("self_service: true"),
+            required: false,
+            field_type: "boolean",
+            cli_hint: None,
+        },
+    );
+
+    // =========================================================================
+    // Path reference keys
+    // =========================================================================
+
+    m.insert(
+        "paths",
+        FieldDoc {
+            name: "paths",
+            description: "Glob pattern referencing multiple files. Must contain glob characters (*, ?, [, {). Use 'path' for a single file.",
+            valid_values: None,
+            example: Some("- paths: ../platforms/macos/policies/*.yml\n- paths: ../platforms/macos/configuration-profiles/*.mobileconfig"),
+            required: false,
+            field_type: "string (glob)",
+            cli_hint: None,
         },
     );
 

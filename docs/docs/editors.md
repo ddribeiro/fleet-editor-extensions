@@ -27,7 +27,21 @@ The extension activates automatically for Fleet GitOps YAML files.
 
 ## Zed
 
-Install the **Flint** extension from the Zed extension gallery. The binary is auto-downloaded from GitHub releases.
+Install the **Flint** extension: download `flint-zed-extension-<version>.zip` from [releases](https://github.com/headmin/fleet-editor-extensions/releases), extract, then in Zed: `Cmd+Shift+P` → "zed: install dev extension" → select the folder.
+
+Add to your Zed settings (`Cmd+,`):
+
+```json
+{
+  "languages": {
+    "YAML": {
+      "language_servers": ["flint-lsp"]
+    }
+  }
+}
+```
+
+Requires `flint` on PATH. The built-in `yaml-language-server` should be removed from the list to avoid conflicts.
 
 ## Neovim
 

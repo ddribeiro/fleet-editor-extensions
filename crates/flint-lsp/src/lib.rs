@@ -9,6 +9,7 @@ pub mod completion;
 pub mod diagnostics;
 pub mod fleet;
 pub mod hover;
+pub mod json_hover;
 pub mod position;
 pub mod schema;
 pub mod semantic_tokens;

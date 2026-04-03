@@ -135,11 +135,12 @@ fn check_malformed_path(path: &str) -> Option<String> {
         );
     }
 
-    // Path traversal outside repo
-    if path.starts_with("../") || path.contains("/../") {
+    // Path traversal outside repo — only flag ../../ (two levels up) or deeper,
+    // as ../ is normal for fleet YAML referencing sibling directories
+    // (e.g., fleets/workstations.yml -> ../platforms/macos/policies/*.yml)
+    if path.starts_with("../../") || path.contains("/../../") {
         return Some(
-            "Path traverses outside the current directory. Use a path relative to the repo root."
-                .to_string(),
+            "Path traverses multiple levels up. Verify it stays within the repo root.".to_string(),
         );
     }
 

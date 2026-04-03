@@ -132,9 +132,7 @@ impl Linter {
                 // lib/*/policies/*.yml — parse as policy array
                 if let Ok(policies) = serde_yaml::from_str::<Vec<Policy>>(content) {
                     FleetConfig {
-                        policies: Some(
-                            policies.into_iter().map(PolicyOrPath::Policy).collect(),
-                        ),
+                        policies: Some(policies.into_iter().map(PolicyOrPath::Policy).collect()),
                         ..Default::default()
                     }
                 } else {
@@ -161,15 +159,12 @@ impl Linter {
                         match serde_yaml::from_str::<serde_yaml::Value>(content) {
                             Ok(_) => FleetConfig::default(),
                             Err(e) => {
-                                let mut err = LintError::error(
-                                    format!("YAML parse error: {}", e),
-                                    file_path,
-                                )
-                                .with_rule_code("yaml-syntax".to_string());
+                                let mut err =
+                                    LintError::error(format!("YAML parse error: {}", e), file_path)
+                                        .with_rule_code("yaml-syntax".to_string());
 
                                 if let Some(location) = e.location() {
-                                    err =
-                                        err.with_location(location.line(), location.column());
+                                    err = err.with_location(location.line(), location.column());
                                 }
 
                                 report.add(err);
@@ -313,10 +308,7 @@ enum FileType {
 
 /// Detect file type from path using directory names and file name patterns.
 fn detect_file_type(path: &Path) -> FileType {
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
     // Agent options files
     if file_name.starts_with("agent-options") || file_name.starts_with("agent_options") {
@@ -333,10 +325,13 @@ fn detect_file_type(path: &Path) -> FileType {
             "policies" => return FileType::Policies,
             "queries" | "reports" => return FileType::Queries,
             // v4.83 directories that contain non-YAML-to-lint files
-            "configuration-profiles" | "declaration-profiles" | "enrollment-profiles"
-            | "commands" | "scripts" | "icons" | "managed-app-configurations" => {
-                return FileType::NonYaml
-            }
+            "configuration-profiles"
+            | "declaration-profiles"
+            | "enrollment-profiles"
+            | "commands"
+            | "scripts"
+            | "icons"
+            | "managed-app-configurations" => return FileType::NonYaml,
             _ => {}
         }
     }
@@ -734,49 +729,110 @@ policies:
 
     #[test]
     fn test_detect_file_type_fleet_config() {
-        assert_eq!(detect_file_type(Path::new("default.yml")), FileType::FleetConfig);
-        assert_eq!(detect_file_type(Path::new("fleets/engineering.yml")), FileType::FleetConfig);
-        assert_eq!(detect_file_type(Path::new("teams/ops.yml")), FileType::FleetConfig);
+        assert_eq!(
+            detect_file_type(Path::new("default.yml")),
+            FileType::FleetConfig
+        );
+        assert_eq!(
+            detect_file_type(Path::new("fleets/engineering.yml")),
+            FileType::FleetConfig
+        );
+        assert_eq!(
+            detect_file_type(Path::new("teams/ops.yml")),
+            FileType::FleetConfig
+        );
     }
 
     #[test]
     fn test_detect_file_type_labels() {
-        assert_eq!(detect_file_type(Path::new("labels/macos.yml")), FileType::Labels);
-        assert_eq!(detect_file_type(Path::new("lib/all/labels/hosts.yml")), FileType::Labels);
-        assert_eq!(detect_file_type(Path::new("my.labels.yml")), FileType::Labels);
+        assert_eq!(
+            detect_file_type(Path::new("labels/macos.yml")),
+            FileType::Labels
+        );
+        assert_eq!(
+            detect_file_type(Path::new("lib/all/labels/hosts.yml")),
+            FileType::Labels
+        );
+        assert_eq!(
+            detect_file_type(Path::new("my.labels.yml")),
+            FileType::Labels
+        );
     }
 
     #[test]
     fn test_detect_file_type_software() {
-        assert_eq!(detect_file_type(Path::new("lib/macos/software/slack.yml")), FileType::Software);
-        assert_eq!(detect_file_type(Path::new("platforms/macos/software/chrome.yml")), FileType::Software);
+        assert_eq!(
+            detect_file_type(Path::new("lib/macos/software/slack.yml")),
+            FileType::Software
+        );
+        assert_eq!(
+            detect_file_type(Path::new("platforms/macos/software/chrome.yml")),
+            FileType::Software
+        );
     }
 
     #[test]
     fn test_detect_file_type_policies() {
-        assert_eq!(detect_file_type(Path::new("lib/macos/policies/filevault.yml")), FileType::Policies);
-        assert_eq!(detect_file_type(Path::new("platforms/macos/policies/security.yml")), FileType::Policies);
+        assert_eq!(
+            detect_file_type(Path::new("lib/macos/policies/filevault.yml")),
+            FileType::Policies
+        );
+        assert_eq!(
+            detect_file_type(Path::new("platforms/macos/policies/security.yml")),
+            FileType::Policies
+        );
     }
 
     #[test]
     fn test_detect_file_type_queries() {
-        assert_eq!(detect_file_type(Path::new("lib/macos/queries/uptime.yml")), FileType::Queries);
-        assert_eq!(detect_file_type(Path::new("platforms/all/reports/compliance.yml")), FileType::Queries);
+        assert_eq!(
+            detect_file_type(Path::new("lib/macos/queries/uptime.yml")),
+            FileType::Queries
+        );
+        assert_eq!(
+            detect_file_type(Path::new("platforms/all/reports/compliance.yml")),
+            FileType::Queries
+        );
     }
 
     #[test]
     fn test_detect_file_type_agent_options() {
-        assert_eq!(detect_file_type(Path::new("lib/agent-options.yml")), FileType::AgentOptions);
-        assert_eq!(detect_file_type(Path::new("platforms/all/agent-options.yml")), FileType::AgentOptions);
+        assert_eq!(
+            detect_file_type(Path::new("lib/agent-options.yml")),
+            FileType::AgentOptions
+        );
+        assert_eq!(
+            detect_file_type(Path::new("platforms/all/agent-options.yml")),
+            FileType::AgentOptions
+        );
     }
 
     #[test]
     fn test_detect_file_type_non_yaml() {
-        assert_eq!(detect_file_type(Path::new("platforms/macos/configuration-profiles/wifi.mobileconfig")), FileType::NonYaml);
-        assert_eq!(detect_file_type(Path::new("platforms/macos/declaration-profiles/activation.json")), FileType::NonYaml);
-        assert_eq!(detect_file_type(Path::new("platforms/macos/scripts/setup.sh")), FileType::NonYaml);
-        assert_eq!(detect_file_type(Path::new("platforms/macos/commands/restart.plist")), FileType::NonYaml);
-        assert_eq!(detect_file_type(Path::new("platforms/all/icons/slack.png")), FileType::NonYaml);
+        assert_eq!(
+            detect_file_type(Path::new(
+                "platforms/macos/configuration-profiles/wifi.mobileconfig"
+            )),
+            FileType::NonYaml
+        );
+        assert_eq!(
+            detect_file_type(Path::new(
+                "platforms/macos/declaration-profiles/activation.json"
+            )),
+            FileType::NonYaml
+        );
+        assert_eq!(
+            detect_file_type(Path::new("platforms/macos/scripts/setup.sh")),
+            FileType::NonYaml
+        );
+        assert_eq!(
+            detect_file_type(Path::new("platforms/macos/commands/restart.plist")),
+            FileType::NonYaml
+        );
+        assert_eq!(
+            detect_file_type(Path::new("platforms/all/icons/slack.png")),
+            FileType::NonYaml
+        );
     }
 
     // ── Label linting tests ─────────────────────────────────────
@@ -801,7 +857,11 @@ policies:
 
         let linter = Linter::new();
         let report = linter.lint_file(&label_file).unwrap();
-        assert!(!report.has_errors(), "Dynamic label with query should have no errors: {:?}", report.errors);
+        assert!(
+            !report.has_errors(),
+            "Dynamic label with query should have no errors: {:?}",
+            report.errors
+        );
     }
 
     #[test]
@@ -822,7 +882,11 @@ policies:
 
         let linter = Linter::new();
         let report = linter.lint_file(&label_file).unwrap();
-        assert!(!report.has_errors(), "Manual label should have no errors: {:?}", report.errors);
+        assert!(
+            !report.has_errors(),
+            "Manual label should have no errors: {:?}",
+            report.errors
+        );
     }
 
     #[test]
@@ -844,7 +908,11 @@ policies:
 
         let linter = Linter::new();
         let report = linter.lint_file(&label_file).unwrap();
-        assert!(!report.has_errors(), "host_vitals label should have no errors: {:?}", report.errors);
+        assert!(
+            !report.has_errors(),
+            "host_vitals label should have no errors: {:?}",
+            report.errors
+        );
     }
 
     #[test]
@@ -867,7 +935,11 @@ policies:
 
         let linter = Linter::new();
         let report = linter.lint_file(&label_file).unwrap();
-        assert!(!report.has_errors(), "criteria label should have no errors: {:?}", report.errors);
+        assert!(
+            !report.has_errors(),
+            "criteria label should have no errors: {:?}",
+            report.errors
+        );
     }
 
     #[test]
@@ -884,7 +956,11 @@ hash_sha256: abc123def456
         let linter = Linter::new();
         let report = linter.lint_file(&sw_file).unwrap();
         // Software files skip structural rules — only hygiene checks
-        assert!(!report.has_errors(), "Software file should skip structural validation: {:?}", report.errors);
+        assert!(
+            !report.has_errors(),
+            "Software file should skip structural validation: {:?}",
+            report.errors
+        );
     }
 
     #[test]
@@ -901,6 +977,10 @@ config:
 
         let linter = Linter::new();
         let report = linter.lint_file(&file).unwrap();
-        assert!(!report.has_errors(), "Agent options file should skip structural validation: {:?}", report.errors);
+        assert!(
+            !report.has_errors(),
+            "Agent options file should skip structural validation: {:?}",
+            report.errors
+        );
     }
 }

@@ -90,6 +90,11 @@ impl RuleSet {
         set.add_rule(Box::new(super::semantic::SecretHygieneRule));
         set.add_rule(Box::new(super::semantic::PathReferenceRule));
 
+        // YAML hygiene rules (ADR-008)
+        set.add_rule(Box::new(super::yaml_lint::YamlIndentationRule));
+        set.add_rule(Box::new(super::yaml_lint::YamlColonsRule));
+        set.add_rule(Box::new(super::yaml_lint::YamlEmptyValuesRule));
+
         set
     }
 
@@ -119,6 +124,11 @@ impl RuleSet {
         set.add_rule(Box::new(super::semantic::FileExtensionRule));
         set.add_rule(Box::new(super::semantic::SecretHygieneRule));
         set.add_rule(Box::new(super::semantic::PathReferenceRule));
+
+        // YAML hygiene rules (ADR-008)
+        set.add_rule(Box::new(super::yaml_lint::YamlIndentationRule));
+        set.add_rule(Box::new(super::yaml_lint::YamlColonsRule));
+        set.add_rule(Box::new(super::yaml_lint::YamlEmptyValuesRule));
 
         set
     }

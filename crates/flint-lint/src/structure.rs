@@ -504,34 +504,43 @@ fn org_settings_strict() -> SchemaNode {
         ("certificate_authorities", open_mapping()),
         ("webhook_settings", webhook_settings_strict()),
         ("mdm", open_mapping()),
-        ("smtp_settings", mapping(vec![
-            ("authentication_method", leaf()),
-            ("authentication_type", leaf()),
-            ("domain", leaf()),
-            ("enable_smtp", boolean_leaf()),
-            ("enable_ssl_tls", boolean_leaf()),
-            ("enable_start_tls", boolean_leaf()),
-            ("password", leaf()),
-            ("port", leaf()),
-            ("sender_address", leaf()),
-            ("server", leaf()),
-            ("user_name", leaf()),
-            ("verify_ssl_certs", boolean_leaf()),
-        ])),
-        ("vulnerability_settings", mapping(vec![
-            ("databases_path", leaf()),
-            ("periodicity", leaf()),
-            ("cpe_database_url", leaf()),
-            ("cpe_translations_url", leaf()),
-            ("cve_feed_prefix_url", leaf()),
-            ("disable_data_sync", boolean_leaf()),
-            ("disable_win_os_vulnerabilities", boolean_leaf()),
-            ("recent_vulnerability_max_age", leaf()),
-        ])),
-        ("activity_expiry_settings", mapping(vec![
-            ("activity_expiry_enabled", boolean_leaf()),
-            ("activity_expiry_window", leaf()),
-        ])),
+        (
+            "smtp_settings",
+            mapping(vec![
+                ("authentication_method", leaf()),
+                ("authentication_type", leaf()),
+                ("domain", leaf()),
+                ("enable_smtp", boolean_leaf()),
+                ("enable_ssl_tls", boolean_leaf()),
+                ("enable_start_tls", boolean_leaf()),
+                ("password", leaf()),
+                ("port", leaf()),
+                ("sender_address", leaf()),
+                ("server", leaf()),
+                ("user_name", leaf()),
+                ("verify_ssl_certs", boolean_leaf()),
+            ]),
+        ),
+        (
+            "vulnerability_settings",
+            mapping(vec![
+                ("databases_path", leaf()),
+                ("periodicity", leaf()),
+                ("cpe_database_url", leaf()),
+                ("cpe_translations_url", leaf()),
+                ("cve_feed_prefix_url", leaf()),
+                ("disable_data_sync", boolean_leaf()),
+                ("disable_win_os_vulnerabilities", boolean_leaf()),
+                ("recent_vulnerability_max_age", leaf()),
+            ]),
+        ),
+        (
+            "activity_expiry_settings",
+            mapping(vec![
+                ("activity_expiry_enabled", boolean_leaf()),
+                ("activity_expiry_window", leaf()),
+            ]),
+        ),
         ("yara_rules", array(open_mapping())),
         (
             "gitops",
@@ -821,16 +830,31 @@ pub static KEY_REGISTRY: Lazy<KeyRegistry> = Lazy::new(|| {
     reg.register("databases_path", "org_settings.vulnerability_settings");
     reg.register("periodicity", "org_settings.vulnerability_settings");
     reg.register("cpe_database_url", "org_settings.vulnerability_settings");
-    reg.register("cpe_translations_url", "org_settings.vulnerability_settings");
+    reg.register(
+        "cpe_translations_url",
+        "org_settings.vulnerability_settings",
+    );
     reg.register("cve_feed_prefix_url", "org_settings.vulnerability_settings");
     reg.register("disable_data_sync", "org_settings.vulnerability_settings");
-    reg.register("disable_win_os_vulnerabilities", "org_settings.vulnerability_settings");
-    reg.register("recent_vulnerability_max_age", "org_settings.vulnerability_settings");
+    reg.register(
+        "disable_win_os_vulnerabilities",
+        "org_settings.vulnerability_settings",
+    );
+    reg.register(
+        "recent_vulnerability_max_age",
+        "org_settings.vulnerability_settings",
+    );
 
     // org_settings.activity_expiry_settings children
     reg.register("activity_expiry_settings", "org_settings");
-    reg.register("activity_expiry_enabled", "org_settings.activity_expiry_settings");
-    reg.register("activity_expiry_window", "org_settings.activity_expiry_settings");
+    reg.register(
+        "activity_expiry_enabled",
+        "org_settings.activity_expiry_settings",
+    );
+    reg.register(
+        "activity_expiry_window",
+        "org_settings.activity_expiry_settings",
+    );
 
     // org_settings.webhook_settings children
     reg.register("webhook_settings", "org_settings");
@@ -1137,31 +1161,66 @@ mod tests {
         let reg = &*KEY_REGISTRY;
         let required_keys = [
             // Top-level
-            "policies", "reports", "queries", "labels", "controls",
-            "software", "agent_options", "org_settings", "settings",
-            "team_settings", "name",
+            "policies",
+            "reports",
+            "queries",
+            "labels",
+            "controls",
+            "software",
+            "agent_options",
+            "org_settings",
+            "settings",
+            "team_settings",
+            "name",
             // Policy fields
-            "query", "description", "resolution", "platform", "critical",
-            "calendar_events_enabled", "software_title_id", "script_id",
+            "query",
+            "description",
+            "resolution",
+            "platform",
+            "critical",
+            "calendar_events_enabled",
+            "software_title_id",
+            "script_id",
             // Report/query fields
-            "interval", "logging", "observer_can_run", "automations_enabled",
-            "discard_data", "min_osquery_version",
+            "interval",
+            "logging",
+            "observer_can_run",
+            "automations_enabled",
+            "discard_data",
+            "min_osquery_version",
             // Label fields
-            "label_membership_type", "hosts",
+            "label_membership_type",
+            "hosts",
             // Controls
-            "enable_disk_encryption", "macos_updates", "ios_updates",
-            "ipados_updates", "windows_updates", "scripts",
-            "macos_settings", "apple_settings", "windows_settings",
-            "android_settings", "custom_settings", "configuration_profiles",
+            "enable_disk_encryption",
+            "macos_updates",
+            "ios_updates",
+            "ipados_updates",
+            "windows_updates",
+            "scripts",
+            "macos_settings",
+            "apple_settings",
+            "windows_settings",
+            "android_settings",
+            "custom_settings",
+            "configuration_profiles",
             // Software
-            "packages", "fleet_maintained_apps", "app_store_apps",
+            "packages",
+            "fleet_maintained_apps",
+            "app_store_apps",
             // org_settings sections
-            "features", "fleet_desktop", "host_expiry_settings",
-            "server_settings", "sso_settings", "smtp_settings",
-            "webhook_settings", "vulnerability_settings",
+            "features",
+            "fleet_desktop",
+            "host_expiry_settings",
+            "server_settings",
+            "sso_settings",
+            "smtp_settings",
+            "webhook_settings",
+            "vulnerability_settings",
             "activity_expiry_settings",
             // Deprecation targets
-            "path", "paths",
+            "path",
+            "paths",
         ];
 
         for key in &required_keys {

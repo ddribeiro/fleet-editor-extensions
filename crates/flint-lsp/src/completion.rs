@@ -4,8 +4,8 @@
 
 use std::path::Path;
 use tower_lsp::lsp_types::{
-    CompletionItem, CompletionItemKind, Documentation, InsertTextFormat, InsertTextMode,
-    MarkupContent, MarkupKind, Position,
+    CompletionItem, CompletionItemKind, CompletionTextEdit, Documentation, InsertTextFormat,
+    InsertTextMode, MarkupContent, MarkupKind, Position, Range, TextEdit,
 };
 
 use super::schema::{get_field_doc, LOGGING_DOCS, PLATFORM_DOCS};
@@ -144,9 +144,14 @@ pub fn complete_at_with_context(
         CompletionContext::PlatformValue => complete_platform_values(),
         CompletionContext::LoggingValue => complete_logging_values(),
         CompletionContext::BooleanValue => complete_boolean_values(),
-        CompletionContext::PathValue { context_type } => {
-            complete_file_paths(line, col_idx, current_file, workspace_root, context_type)
-        }
+        CompletionContext::PathValue { context_type } => complete_file_paths(
+            line,
+            line_idx,
+            col_idx,
+            current_file,
+            workspace_root,
+            context_type,
+        ),
         CompletionContext::SqlContext { platform } => complete_osquery_tables(platform.as_deref()),
         CompletionContext::Unknown => vec![],
     }
@@ -180,8 +185,11 @@ fn determine_completion_context(
                         PathContextType::SoftwarePackage
                     }
                     Some(p) if p.contains("scripts") => PathContextType::Script,
-                    Some(p) if p.contains("macos_settings") => PathContextType::MacOSProfile,
+                    Some(p) if p.contains("macos_settings") || p.contains("apple_settings") => {
+                        PathContextType::MacOSProfile
+                    }
                     Some(p) if p.contains("windows_settings") => PathContextType::WindowsProfile,
+                    Some(p) if p.contains("android_settings") => PathContextType::Generic,
                     // Policies, queries, reports, and labels can also use path references
                     Some(p) if p == "policies" || p.ends_with(".policies") => {
                         PathContextType::Policy
@@ -1369,6 +1377,7 @@ fn complete_agent_options_section() -> Vec<CompletionItem> {
 /// Complete file paths for path: values.
 fn complete_file_paths(
     line: &str,
+    line_idx: usize,
     col_idx: usize,
     current_file: Option<&Path>,
     workspace_root: Option<&Path>,
@@ -1376,8 +1385,16 @@ fn complete_file_paths(
 ) -> Vec<CompletionItem> {
     let mut completions = Vec::new();
 
-    // Extract partial path already typed (text after "path: ")
+    // Extract partial path already typed (text after "path: " or "paths: ")
     let partial = extract_partial_path(line, col_idx);
+
+    // Find the start position of the value (after "path: " or "paths: ")
+    // so we can create a TextEdit that replaces the entire value, not just appends
+    let value_start_col = line.find(':').map(|c| {
+        let after_colon = &line[c + 1..];
+        let trimmed_len = after_colon.len() - after_colon.trim_start().len();
+        c + 1 + trimmed_len
+    });
 
     // Determine base directory for scanning
     let base_dir = match (workspace_root, current_file) {
@@ -1386,38 +1403,60 @@ fn complete_file_paths(
         (None, None) => return completions,
     };
 
-    // Scan lib/ directory for matching files
-    let lib_dir = base_dir.join("lib");
-    if lib_dir.exists() && lib_dir.is_dir() {
-        scan_directory_for_paths(
-            &lib_dir,
-            current_file,
-            &context_type,
-            &partial,
-            &base_dir,
-            &mut completions,
-            0,
-        );
-    }
-
-    // Also scan teams/ and fleets/ directories for team-level completions
-    for dir_name in &["teams", "fleets"] {
-        let dir = base_dir.join(dir_name);
-        if dir.exists() && dir.is_dir() {
-            scan_directory_for_paths(
-                &dir,
-                current_file,
-                &context_type,
-                &partial,
-                &base_dir,
-                &mut completions,
-                0,
-            );
+    // Scan all immediate subdirectories of the workspace root for matching files.
+    // This handles any directory layout — lib/, platforms/, labels/, fleets/,
+    // or custom directory names — without hardcoding.
+    if let Ok(entries) = std::fs::read_dir(&base_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                // Skip hidden dirs, build artifacts, and node_modules
+                if name.starts_with('.')
+                    || name == "target"
+                    || name == "node_modules"
+                    || name == "dist"
+                {
+                    continue;
+                }
+                scan_directory_for_paths(
+                    &path,
+                    current_file,
+                    &context_type,
+                    &partial,
+                    &base_dir,
+                    &mut completions,
+                    0,
+                );
+            }
         }
     }
 
     // Sort completions alphabetically
     completions.sort_by(|a, b| a.label.cmp(&b.label));
+
+    // Add text_edit to each completion so it replaces the entire value after
+    // the colon, instead of inserting at the cursor (which causes duplication
+    // when the user has already typed part of the path).
+    if let Some(start_col) = value_start_col {
+        for item in &mut completions {
+            item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                range: Range {
+                    start: Position {
+                        line: line_idx as u32,
+                        character: start_col as u32,
+                    },
+                    end: Position {
+                        line: line_idx as u32,
+                        character: col_idx as u32,
+                    },
+                },
+                new_text: item.label.clone(),
+            }));
+            // filter_text ensures the completion still matches against the partial input
+            item.filter_text = Some(item.label.clone());
+        }
+    }
 
     completions
 }
@@ -1880,7 +1919,8 @@ mod tests {
         // Test file path completion
         let completions = complete_file_paths(
             "    - path: ",
-            12,
+            0,  // line_idx
+            12, // col_idx
             Some(&team_file),
             Some(workspace_root),
             PathContextType::SoftwarePackage,

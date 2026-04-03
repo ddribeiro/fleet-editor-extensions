@@ -2,7 +2,7 @@
   <img src="docs/images/flint-icon.png" alt="Flint" width="128">
 </p>
 
-# Flint
+# Flint - Fleet LSP & GitOps Editor Extensions
 
 
 **Fl**eet + L**int** — short for Fleet GitOps Editor & Linter — is a language server and linter built for Fleet GitOps YAML.
