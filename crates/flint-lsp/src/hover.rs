@@ -690,6 +690,44 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn test_hover_paths_in_controls() {
+        let source = r#"controls:
+  apple_settings:
+    configuration_profiles:
+      - paths: ../platforms/macos/declaration-profiles/*.json
+      - path: ../platforms/macos/configuration-profiles/wifi.mobileconfig
+  scripts:
+    - paths: ../platforms/macos/scripts/*.sh"#;
+
+        // Hover on "paths" (line 3, col 8)
+        let hover = hover_at(
+            source,
+            Position {
+                line: 3,
+                character: 8,
+            },
+        );
+        assert!(
+            hover.is_some(),
+            "Should show hover for 'paths' in controls.apple_settings"
+        );
+
+        // Hover on "path" (line 4, col 8)
+        let hover = hover_at(
+            source,
+            Position {
+                line: 4,
+                character: 8,
+            },
+        );
+        assert!(
+            hover.is_some(),
+            "Should show hover for 'path' in controls.apple_settings"
+        );
+    }
+
+    #[test]
     fn test_determine_yaml_context_lib_file() {
         // lib/ file with no top-level key, just a list of policies
         let source = r#"- name: Test Policy

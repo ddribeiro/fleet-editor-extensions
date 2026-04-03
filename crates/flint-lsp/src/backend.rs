@@ -28,7 +28,10 @@ use super::fleet::{
 use super::hover::hover_at_with_context;
 use super::semantic_tokens::{compute_semantic_tokens, create_legend};
 use super::symbols::document_symbols;
-use super::workspace::{document_links, get_path_definition, validate_path_references};
+use super::workspace::{
+    document_links, get_path_definition, validate_fma_slugs, validate_label_references,
+    validate_path_references,
+};
 use flint_lint::fleet_config::Label;
 use flint_lint::{FleetLintConfig, Linter};
 
@@ -286,6 +289,20 @@ impl FleetLspBackend {
             &file_path_buf,
             workspace_root,
         ));
+
+        // Add label reference validation (check labels_include_any/exclude_any
+        // against labels defined in the workspace)
+        if let Some(gitops_file) = super::fleet::find_gitops_root(&file_path_buf) {
+            if let Some(root) = gitops_file.parent() {
+                let known_labels = scan_workspace_label_names(root);
+                if !known_labels.is_empty() {
+                    diagnostics.extend(validate_label_references(content, &known_labels));
+                }
+            }
+        }
+
+        // Add FMA slug validation (check slug: values against the registry)
+        diagnostics.extend(validate_fma_slugs(content));
 
         diagnostics
     }

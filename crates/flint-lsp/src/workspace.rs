@@ -378,6 +378,213 @@ pub fn extract_path_references(source: &str, file_path: &Path) -> Vec<PathRefere
     refs
 }
 
+/// Validate label references in `labels_include_any`, `labels_exclude_any`, and
+/// `labels_include_all` against a set of known label names from the workspace.
+///
+/// Produces warnings for label names that don't match any defined label,
+/// catching typos early (e.g., "Apple Silcon macOS hosts" vs "Apple Silicon macOS hosts").
+pub fn validate_label_references(source: &str, known_labels: &[String]) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let lines: Vec<&str> = source.lines().collect();
+    let mut in_labels_list = false;
+    let mut labels_list_indent: usize = 0;
+
+    for (line_idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        let indent = line.len() - line.trim_start().len();
+
+        // Detect labels_include_any: / labels_exclude_any: / labels_include_all:
+        if trimmed.starts_with("labels_include_any:")
+            || trimmed.starts_with("labels_exclude_any:")
+            || trimmed.starts_with("labels_include_all:")
+        {
+            in_labels_list = true;
+            labels_list_indent = indent;
+            continue;
+        }
+
+        // Exit the labels list when indent drops back
+        if in_labels_list && !trimmed.is_empty() && indent <= labels_list_indent {
+            in_labels_list = false;
+        }
+
+        if !in_labels_list {
+            continue;
+        }
+
+        // Extract label name from list item: `- "Label Name"` or `- Label Name`
+        if trimmed.starts_with('-') {
+            let label = trimmed
+                .trim_start_matches('-')
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'')
+                .trim();
+
+            if label.is_empty() {
+                continue;
+            }
+
+            // Check if this label exists in the workspace
+            let label_exists = known_labels.iter().any(|l| l == label);
+
+            if !label_exists {
+                // Find closest match for suggestion
+                let suggestion = find_closest_label(label, known_labels);
+
+                let start_col = line.find(label).unwrap_or(0) as u32;
+                let end_col = start_col + label.len() as u32;
+
+                let mut diag = Diagnostic {
+                    range: Range {
+                        start: Position {
+                            line: line_idx as u32,
+                            character: start_col,
+                        },
+                        end: Position {
+                            line: line_idx as u32,
+                            character: end_col,
+                        },
+                    },
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    source: Some("fleet-lint".to_string()),
+                    code: Some(tower_lsp::lsp_types::NumberOrString::String(
+                        "unknown-label".to_string(),
+                    )),
+                    message: format!("Label '{}' not found in workspace", label),
+                    ..Default::default()
+                };
+
+                if let Some(closest) = suggestion {
+                    diag.message = format!(
+                        "Label '{}' not found in workspace. Did you mean '{}'?",
+                        label, closest
+                    );
+                }
+
+                diagnostics.push(diag);
+            }
+        }
+    }
+
+    diagnostics
+}
+
+/// Find the closest matching label name using case-insensitive substring matching.
+fn find_closest_label<'a>(input: &str, known: &'a [String]) -> Option<&'a str> {
+    let input_lower = input.to_lowercase();
+
+    // Exact case-insensitive match
+    for label in known {
+        if label.to_lowercase() == input_lower {
+            return Some(label);
+        }
+    }
+
+    // Substring match
+    for label in known {
+        if label.to_lowercase().contains(&input_lower)
+            || input_lower.contains(&label.to_lowercase())
+        {
+            return Some(label);
+        }
+    }
+
+    // Simple edit distance: find labels where most words match
+    let input_words: Vec<&str> = input_lower.split_whitespace().collect();
+    let mut best_match = None;
+    let mut best_score = 0;
+    for label in known {
+        let label_words: Vec<String> = label
+            .to_lowercase()
+            .split_whitespace()
+            .map(String::from)
+            .collect();
+        let matching = input_words
+            .iter()
+            .filter(|w| label_words.iter().any(|lw| lw == *w))
+            .count();
+        if matching > best_score && matching >= input_words.len() / 2 {
+            best_score = matching;
+            best_match = Some(label.as_str());
+        }
+    }
+
+    best_match
+}
+
+/// Validate `slug:` values against the Fleet Maintained App registry.
+///
+/// Flags unknown slugs with "Did you mean...?" suggestions.
+pub fn validate_fma_slugs(source: &str) -> Vec<Diagnostic> {
+    use super::completion_data::{find_similar_fma_slug, is_valid_fma_slug};
+
+    let mut diagnostics = Vec::new();
+
+    for (line_idx, line) in source.lines().enumerate() {
+        let trimmed = line.trim().trim_start_matches('-').trim();
+
+        if !trimmed.starts_with("slug:") {
+            continue;
+        }
+
+        // Extract slug value
+        let value = trimmed
+            .strip_prefix("slug:")
+            .unwrap()
+            .trim()
+            .trim_matches('"')
+            .trim_matches('\'')
+            .trim();
+
+        if value.is_empty() || value.starts_with('$') || value.starts_with('#') {
+            continue; // Skip empty, env vars, comments
+        }
+
+        if is_valid_fma_slug(value) {
+            continue;
+        }
+
+        let suggestion = find_similar_fma_slug(value);
+        let start_col = line.find(value).unwrap_or(0) as u32;
+        let end_col = start_col + value.len() as u32;
+
+        let message = if let Some(ref closest) = suggestion {
+            format!(
+                "Unknown Fleet Maintained App slug '{}'. Did you mean '{}'?",
+                value, closest
+            )
+        } else {
+            format!(
+                "Unknown Fleet Maintained App slug '{}'. Check available apps at fleetdm.com",
+                value
+            )
+        };
+
+        diagnostics.push(Diagnostic {
+            range: Range {
+                start: Position {
+                    line: line_idx as u32,
+                    character: start_col,
+                },
+                end: Position {
+                    line: line_idx as u32,
+                    character: end_col,
+                },
+            },
+            severity: Some(DiagnosticSeverity::WARNING),
+            source: Some("fleet-lint".to_string()),
+            code: Some(tower_lsp::lsp_types::NumberOrString::String(
+                "unknown-fma-slug".to_string(),
+            )),
+            message,
+            ..Default::default()
+        });
+    }
+
+    diagnostics
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

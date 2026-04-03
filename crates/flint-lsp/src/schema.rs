@@ -1500,14 +1500,91 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
     );
 
     // =========================================================================
-    // Path reference keys
+    // Path reference keys (context-specific)
     // =========================================================================
 
+    // Configuration profiles — path/paths
+    m.insert(
+        "controls.apple_settings.configuration_profiles.paths",
+        FieldDoc {
+            name: "paths",
+            description: "Glob pattern referencing Apple configuration or declaration profile files. Matches `.mobileconfig` (configuration profiles) and `.json` (declaration profiles) files.",
+            valid_values: None,
+            example: Some("configuration_profiles:\n  - paths: ../platforms/macos/configuration-profiles/*.mobileconfig\n  - paths: ../platforms/macos/declaration-profiles/*.json"),
+            required: false,
+            field_type: "string (glob)",
+            cli_hint: Some("fleetctl get config --yaml  # see active profiles"),
+        },
+    );
+    m.insert(
+        "controls.apple_settings.configuration_profiles.path",
+        FieldDoc {
+            name: "path",
+            description: "Path to a single Apple configuration profile (`.mobileconfig`) or declaration profile (`.json`). Relative to the repository root or current file.",
+            valid_values: None,
+            example: Some("configuration_profiles:\n  - path: ../platforms/macos/configuration-profiles/wifi.mobileconfig"),
+            required: false,
+            field_type: "string (file path)",
+            cli_hint: None,
+        },
+    );
+    m.insert(
+        "controls.windows_settings.configuration_profiles.paths",
+        FieldDoc {
+            name: "paths",
+            description: "Glob pattern referencing Windows configuration profile files (`.xml`).",
+            valid_values: None,
+            example: Some("configuration_profiles:\n  - paths: ../platforms/windows/configuration-profiles/*.xml"),
+            required: false,
+            field_type: "string (glob)",
+            cli_hint: None,
+        },
+    );
+    m.insert(
+        "controls.windows_settings.configuration_profiles.path",
+        FieldDoc {
+            name: "path",
+            description: "Path to a single Windows configuration profile (`.xml`). Relative to the repository root or current file.",
+            valid_values: None,
+            example: Some("configuration_profiles:\n  - path: ../platforms/windows/configuration-profiles/security.xml"),
+            required: false,
+            field_type: "string (file path)",
+            cli_hint: None,
+        },
+    );
+
+    // Scripts — path/paths
+    m.insert(
+        "controls.scripts.paths",
+        FieldDoc {
+            name: "paths",
+            description: "Glob pattern referencing script files to deploy to hosts. Supports `.sh` (macOS/Linux) and `.ps1` (Windows).",
+            valid_values: None,
+            example: Some("scripts:\n  - paths: ../platforms/macos/scripts/*.sh\n  - paths: ../platforms/windows/scripts/*.ps1"),
+            required: false,
+            field_type: "string (glob)",
+            cli_hint: Some("fleetctl run-script --script-path ./scripts/setup.sh --host \"hostname\""),
+        },
+    );
+    m.insert(
+        "controls.scripts.path",
+        FieldDoc {
+            name: "path",
+            description: "Path to a single script file to deploy to hosts. Supports `.sh` (macOS/Linux) and `.ps1` (Windows). Relative to the repository root or current file.",
+            valid_values: None,
+            example: Some("scripts:\n  - path: ../platforms/macos/scripts/setup.sh"),
+            required: false,
+            field_type: "string (file path)",
+            cli_hint: Some("fleetctl run-script --script-path ./scripts/setup.sh --host \"hostname\""),
+        },
+    );
+
+    // Generic fallbacks
     m.insert(
         "paths",
         FieldDoc {
             name: "paths",
-            description: "Glob pattern referencing multiple files. Must contain glob characters (*, ?, [, {). Use 'path' for a single file.",
+            description: "Glob pattern referencing multiple files. Must contain glob characters (*, ?, [, {). Use `path` for a single file.",
             valid_values: None,
             example: Some("- paths: ../platforms/macos/policies/*.yml\n- paths: ../platforms/macos/configuration-profiles/*.mobileconfig"),
             required: false,

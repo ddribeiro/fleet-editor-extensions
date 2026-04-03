@@ -8,6 +8,9 @@ use tower_lsp::lsp_types::{
     InsertTextMode, MarkupContent, MarkupKind, Position, Range, TextEdit,
 };
 
+use super::completion_data::{
+    blocks_for_context, fields_for_context, globs_for_context, COMPLETION_DATA,
+};
 use super::schema::{get_field_doc, LOGGING_DOCS, PLATFORM_DOCS};
 use flint_lint::osquery::OSQUERY_TABLES;
 
@@ -36,6 +39,10 @@ enum CompletionContext {
     MacOSCustomSettingField,
     /// Inside controls.windows_settings.custom_settings array item
     WindowsCustomSettingField,
+    /// Inside controls.*_settings section (suggests configuration_profiles, etc.)
+    DeviceSettingsSection,
+    /// Inside configuration_profiles array item (suggests path/paths)
+    ConfigurationProfileField,
     /// Inside controls.scripts array item
     ScriptField,
     /// Inside team_settings section
@@ -64,6 +71,14 @@ enum CompletionContext {
     BooleanValue,
     /// After path: key, completing file path value
     PathValue { context_type: PathContextType },
+    /// After slug: key, suggesting FMA slugs
+    SlugValue,
+    /// After paths: key, suggesting glob patterns
+    GlobValue { parent_context: String },
+    /// Inside labels_include_any or labels_exclude_any list
+    LabelValue,
+    /// Inside categories list
+    CategoryValue,
     /// Inside an SQL query (for osquery tables)
     SqlContext { platform: Option<String> },
     /// Unknown context
@@ -133,6 +148,8 @@ pub fn complete_at_with_context(
         CompletionContext::WindowsCustomSettingField => {
             complete_custom_setting_fields(line, col_idx)
         }
+        CompletionContext::DeviceSettingsSection => complete_device_settings_section(),
+        CompletionContext::ConfigurationProfileField => complete_path_ref_fields(),
         CompletionContext::ScriptField => complete_script_fields(line, col_idx),
         CompletionContext::TeamSettingsSection => complete_team_settings_section(),
         CompletionContext::OrgSettingsSection => complete_org_settings_section(),
@@ -152,6 +169,10 @@ pub fn complete_at_with_context(
             workspace_root,
             context_type,
         ),
+        CompletionContext::SlugValue => complete_fma_slugs(),
+        CompletionContext::GlobValue { parent_context } => complete_glob_patterns(&parent_context),
+        CompletionContext::LabelValue => complete_common_labels(),
+        CompletionContext::CategoryValue => complete_common_categories(),
         CompletionContext::SqlContext { platform } => complete_osquery_tables(platform.as_deref()),
         CompletionContext::Unknown => vec![],
     }
@@ -176,8 +197,9 @@ fn determine_completion_context(
         match key.as_str() {
             "platform" => return CompletionContext::PlatformValue,
             "logging" => return CompletionContext::LoggingValue,
-            "path" | "paths" => {
-                // Determine path context type based on parent context
+            "slug" => return CompletionContext::SlugValue,
+            "path" => {
+                // path: → file lookup
                 let parent = find_parent_context(source, line_idx);
                 let context_type = match parent.as_deref() {
                     Some(p) if p.contains("software.packages") => PathContextType::SoftwarePackage,
@@ -190,7 +212,6 @@ fn determine_completion_context(
                     }
                     Some(p) if p.contains("windows_settings") => PathContextType::WindowsProfile,
                     Some(p) if p.contains("android_settings") => PathContextType::Generic,
-                    // Policies, queries, reports, and labels can also use path references
                     Some(p) if p == "policies" || p.ends_with(".policies") => {
                         PathContextType::Policy
                     }
@@ -201,7 +222,29 @@ fn determine_completion_context(
                 };
                 return CompletionContext::PathValue { context_type };
             }
+            "paths" => {
+                // paths: → suggest glob patterns based on context
+                let parent = find_parent_context(source, line_idx);
+                return CompletionContext::GlobValue {
+                    parent_context: parent.unwrap_or_default(),
+                };
+            }
             _ => {}
+        }
+    }
+
+    // Check if we're inside a labels or categories list (- item under labels_include_any etc.)
+    if trimmed.starts_with('-') || trimmed.is_empty() {
+        if let Some(parent_key) = find_immediate_parent_key(source, line_idx, line) {
+            match parent_key.as_str() {
+                "labels_include_any" | "labels_exclude_any" => {
+                    return CompletionContext::LabelValue;
+                }
+                "categories" => {
+                    return CompletionContext::CategoryValue;
+                }
+                _ => {}
+            }
         }
     }
 
@@ -405,6 +448,23 @@ fn context_path_to_completion_context(path: Option<&str>) -> CompletionContext {
         }
         Some(p) if p.contains("windows_settings.custom_settings") => {
             CompletionContext::WindowsCustomSettingField
+        }
+        Some(p) if p.contains("configuration_profiles") => {
+            CompletionContext::ConfigurationProfileField
+        }
+        Some(p)
+            if p.contains("apple_settings")
+                || p.contains("windows_settings")
+                || p.contains("android_settings")
+                || p.contains("macos_settings") =>
+        {
+            // Inside a *_settings section but not yet in a sub-key
+            // Only match if we're directly under the settings key, not deeper
+            if !p.contains("custom_settings") && !p.contains("configuration_profiles") {
+                CompletionContext::DeviceSettingsSection
+            } else {
+                CompletionContext::Unknown
+            }
         }
         Some(p) if p.contains("controls.scripts") => CompletionContext::ScriptField,
         Some(p) if p.starts_with("team_settings") => CompletionContext::TeamSettingsSection,
@@ -694,6 +754,7 @@ fn create_field_completion(name: &str, description: &str, required: bool) -> Com
         detail: Some(detail),
         documentation,
         filter_text: Some(name.to_string()),
+        sort_text: Some(format!("{}_{}", if required { "0" } else { "1" }, name)),
         ..Default::default()
     }
 }
@@ -768,7 +829,10 @@ fn complete_software_section() -> Vec<CompletionItem> {
         (
             "packages",
             "Software packages (block)",
-            "packages:\n  - path: ${1:../lib/package.yml}\n    self_service: ${2:true}",
+            "packages:\n\
+  - path: ${1:../platforms/macos/software/app.yml}\n\
+    self_service: ${2:true}\n\
+    setup_experience: ${3:false}",
         ),
         (
             "app_store_apps",
@@ -778,7 +842,12 @@ fn complete_software_section() -> Vec<CompletionItem> {
         (
             "fleet_maintained_apps",
             "Fleet-maintained apps (block)",
-            "fleet_maintained_apps:\n  - slug: ${1:app/darwin}\n    self_service: ${2:true}",
+            "fleet_maintained_apps:\n\
+  - slug: ${1:slack/darwin}\n\
+    self_service: ${2:true}\n\
+    setup_experience: ${3:false}\n\
+    categories:\n\
+      - ${4:Productivity}",
         ),
     ];
 
@@ -789,128 +858,19 @@ fn complete_software_section() -> Vec<CompletionItem> {
     items
 }
 
-/// Complete software.packages array item fields.
+/// Complete software.packages array item fields (data-driven from completions.toml).
 fn complete_software_package_fields(line: &str, col_idx: usize) -> Vec<CompletionItem> {
-    // Check if we're in value position
-    if let Some(key) = get_key_at_cursor(line, col_idx) {
-        match key.as_str() {
-            "self_service" | "setup_experience" => return complete_boolean_values(),
-            _ => {}
-        }
-    }
-
-    // Based on workstations.yml: path, self_service, setup_experience, categories, labels_include_any, display_name
-    let fields = [
-        ("path", "Path to software package YAML definition", true),
-        (
-            "self_service",
-            "Allow users to install from Fleet Desktop",
-            false,
-        ),
-        (
-            "setup_experience",
-            "Install during device setup (DEP)",
-            false,
-        ),
-        ("categories", "App categories for organization", false),
-        (
-            "labels_include_any",
-            "Only install on hosts with these labels",
-            false,
-        ),
-        (
-            "labels_exclude_any",
-            "Don't install on hosts with these labels",
-            false,
-        ),
-        ("display_name", "Custom display name in Fleet UI", false),
-    ];
-
-    fields
-        .iter()
-        .map(|(name, desc, required)| create_field_completion(name, desc, *required))
-        .collect()
+    completions_from_data("packages", line, col_idx)
 }
 
-/// Complete software.app_store_apps array item fields.
+/// Complete software.app_store_apps array item fields (data-driven from completions.toml).
 fn complete_app_store_app_fields(line: &str, col_idx: usize) -> Vec<CompletionItem> {
-    if let Some(key) = get_key_at_cursor(line, col_idx) {
-        match key.as_str() {
-            "self_service" | "setup_experience" => return complete_boolean_values(),
-            _ => {}
-        }
-    }
-
-    let fields = [
-        ("app_store_id", "Apple App Store app ID", true),
-        (
-            "self_service",
-            "Allow users to install from Fleet Desktop",
-            false,
-        ),
-        (
-            "setup_experience",
-            "Install during device setup (DEP)",
-            false,
-        ),
-    ];
-
-    fields
-        .iter()
-        .map(|(name, desc, required)| create_field_completion(name, desc, *required))
-        .collect()
+    completions_from_data("app_store_apps", line, col_idx)
 }
 
-/// Complete software.fleet_maintained_apps array item fields.
+/// Complete software.fleet_maintained_apps array item fields (data-driven from completions.toml).
 fn complete_fleet_maintained_app_fields(line: &str, col_idx: usize) -> Vec<CompletionItem> {
-    if let Some(key) = get_key_at_cursor(line, col_idx) {
-        match key.as_str() {
-            "self_service" | "setup_experience" => return complete_boolean_values(),
-            _ => {}
-        }
-    }
-
-    // Based on workstations.yml
-    let fields = [
-        ("slug", "Fleet app identifier (e.g., slack/darwin)", true),
-        (
-            "self_service",
-            "Allow users to install from Fleet Desktop",
-            false,
-        ),
-        (
-            "setup_experience",
-            "Install during device setup (DEP)",
-            false,
-        ),
-        (
-            "labels_include_any",
-            "Only install on hosts with these labels",
-            false,
-        ),
-        (
-            "labels_exclude_any",
-            "Don't install on hosts with these labels",
-            false,
-        ),
-        ("display_name", "Custom display name in Fleet UI", false),
-        ("categories", "App categories for organization", false),
-        (
-            "post_install_script",
-            "Script to run after installation",
-            false,
-        ),
-        (
-            "pre_install_query",
-            "Query that must pass before installation",
-            false,
-        ),
-    ];
-
-    fields
-        .iter()
-        .map(|(name, desc, required)| create_field_completion(name, desc, *required))
-        .collect()
+    completions_from_data("fleet_maintained_apps", line, col_idx)
 }
 
 /// Complete controls section keys.
@@ -1097,16 +1057,241 @@ fn complete_custom_setting_fields(line: &str, col_idx: usize) -> Vec<CompletionI
 }
 
 /// Complete script array item fields.
-fn complete_script_fields(_line: &str, _col_idx: usize) -> Vec<CompletionItem> {
+/// Complete device settings section (apple_settings, windows_settings, android_settings).
+fn complete_device_settings_section() -> Vec<CompletionItem> {
     let fields = [
-        ("path", "Path to script file", true),
-        ("paths", "Glob pattern for script files", false),
+        (
+            "configuration_profiles",
+            "MDM configuration/declaration profiles to install",
+            false,
+        ),
+        ("custom_settings", "Custom MDM profiles (legacy)", false),
     ];
 
     fields
         .iter()
         .map(|(name, desc, required)| create_field_completion(name, desc, *required))
         .collect()
+}
+
+/// Suggest common glob patterns based on the parent context.
+///
+/// When the user types `paths: ` and triggers completion, this offers
+/// pre-built globs for the current section (profiles, scripts, policies, etc.).
+/// Suggest Fleet Maintained App slugs for `slug:` values (data-driven from fma-registry.toml).
+fn complete_fma_slugs() -> Vec<CompletionItem> {
+    use super::completion_data::FMA_REGISTRY;
+
+    FMA_REGISTRY
+        .fma
+        .iter()
+        .flat_map(|app| {
+            app.platforms.iter().map(move |platform| {
+                let slug = format!("{}/{}", app.name, platform);
+                let detail = format!(
+                    "{} for {}",
+                    app.name,
+                    match platform.as_str() {
+                        "darwin" => "macOS",
+                        "windows" => "Windows",
+                        _ => platform,
+                    }
+                );
+                CompletionItem {
+                    label: slug.clone(),
+                    kind: Some(CompletionItemKind::VALUE),
+                    detail: Some(detail),
+                    filter_text: Some(app.name.clone()),
+                    sort_text: Some(format!("0_{}", app.name)),
+                    ..Default::default()
+                }
+            })
+        })
+        .collect()
+}
+
+/// Suggest glob patterns for `paths:` values (data-driven from completions.toml).
+///
+/// Matches the parent context against TOML glob entries. The `{base}` placeholder
+/// is left as-is for now — runtime resolution requires workspace root knowledge
+/// which will be added when the LSP passes file context to completions.
+fn complete_glob_patterns(parent_context: &str) -> Vec<CompletionItem> {
+    // Map parent_context to TOML context keys
+    let context_key =
+        if parent_context.contains("apple_settings") || parent_context.contains("macos_settings") {
+            "apple_settings"
+        } else if parent_context.contains("windows_settings") {
+            "windows_settings"
+        } else if parent_context.contains("android_settings") {
+            "android_settings"
+        } else if parent_context.contains("scripts") {
+            "scripts"
+        } else if parent_context.contains("policies") || parent_context.ends_with("policies") {
+            "policies"
+        } else if parent_context.contains("queries")
+            || parent_context.contains("reports")
+            || parent_context.ends_with("queries")
+            || parent_context.ends_with("reports")
+        {
+            "reports"
+        } else if parent_context.contains("labels") || parent_context.ends_with("labels") {
+            "labels"
+        } else {
+            ""
+        };
+
+    let globs = globs_for_context(context_key);
+
+    if globs.is_empty() {
+        // Fallback for unknown contexts
+        return vec![];
+    }
+
+    globs
+        .iter()
+        .enumerate()
+        .map(|(i, glob)| {
+            // TODO: resolve {base} using workspace root when available
+            let pattern = glob.pattern.replace("{base}", "../platforms");
+            let mut item = CompletionItem {
+                label: pattern.clone(),
+                kind: Some(CompletionItemKind::VALUE),
+                detail: Some(glob.description.clone()),
+                sort_text: Some(format!("0_{}", i)),
+                ..Default::default()
+            };
+            item.documentation = Some(Documentation::MarkupContent(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: format!("**{}**\n\n`{}`", glob.description, pattern),
+            }));
+            item
+        })
+        .collect()
+}
+
+/// Build field + block completions from the TOML data for a given context.
+///
+/// This is the data-driven replacement for the per-context `complete_*_fields()`
+/// functions. It reads fields and blocks from `completions.toml`.
+fn completions_from_data(context: &str, line: &str, col_idx: usize) -> Vec<CompletionItem> {
+    // Check if we're in a value position for boolean fields
+    if let Some(key) = get_key_at_cursor(line, col_idx) {
+        match key.as_str() {
+            "self_service" | "setup_experience" | "auto_update_enabled" => {
+                return complete_boolean_values();
+            }
+            _ => {}
+        }
+    }
+
+    let mut items: Vec<CompletionItem> = Vec::new();
+
+    // Fields from TOML
+    for field in fields_for_context(context) {
+        items.push(create_field_completion(
+            &field.name,
+            &field.description,
+            field.required,
+        ));
+    }
+
+    // Block snippets from TOML
+    for block in blocks_for_context(context) {
+        let snippet = block.snippet.strip_prefix('\n').unwrap_or(&block.snippet);
+        items.push(create_block_completion(
+            &block.name,
+            &block.description,
+            snippet,
+        ));
+    }
+
+    items
+}
+
+/// Find the immediate parent key for the current line (the key whose list we're inside).
+fn find_immediate_parent_key(source: &str, line_idx: usize, current_line: &str) -> Option<String> {
+    let current_indent = current_line.len() - current_line.trim_start().len();
+    let lines: Vec<&str> = source.lines().collect();
+
+    for i in (0..line_idx).rev() {
+        let line = lines.get(i).unwrap_or(&"");
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let indent = line.len() - line.trim_start().len();
+        if indent < current_indent {
+            // This is the parent — extract key
+            if let Some(colon_pos) = trimmed.find(':') {
+                let key = trimmed[..colon_pos].trim().trim_start_matches('-').trim();
+                if !key.is_empty() {
+                    return Some(key.to_string());
+                }
+            }
+            break;
+        }
+    }
+    None
+}
+
+/// Suggest common Fleet label names (data-driven from completions.toml).
+fn complete_common_labels() -> Vec<CompletionItem> {
+    COMPLETION_DATA
+        .labels
+        .iter()
+        .enumerate()
+        .map(|(i, label)| CompletionItem {
+            label: label.name.clone(),
+            kind: Some(CompletionItemKind::VALUE),
+            detail: Some(label.description.clone()),
+            insert_text: Some(format!("\"{}\"", label.name)),
+            sort_text: Some(format!("0_{}", i)),
+            ..Default::default()
+        })
+        .collect()
+}
+
+/// Suggest common Fleet software categories (data-driven from completions.toml).
+fn complete_common_categories() -> Vec<CompletionItem> {
+    COMPLETION_DATA
+        .categories
+        .values
+        .iter()
+        .enumerate()
+        .map(|(i, name)| CompletionItem {
+            label: name.clone(),
+            kind: Some(CompletionItemKind::VALUE),
+            sort_text: Some(format!("0_{}", i)),
+            ..Default::default()
+        })
+        .collect()
+}
+
+/// Complete path reference fields (used in configuration_profiles, policies path refs, etc.)
+/// Complete configuration_profiles array item fields (data-driven from completions.toml).
+fn complete_path_ref_fields() -> Vec<CompletionItem> {
+    let mut items = Vec::new();
+    for field in fields_for_context("configuration_profiles") {
+        items.push(create_field_completion(
+            &field.name,
+            &field.description,
+            field.required,
+        ));
+    }
+    items
+}
+
+/// Complete scripts array item fields (data-driven from completions.toml).
+fn complete_script_fields(_line: &str, _col_idx: usize) -> Vec<CompletionItem> {
+    let mut items = Vec::new();
+    for field in fields_for_context("scripts") {
+        items.push(create_field_completion(
+            &field.name,
+            &field.description,
+            field.required,
+        ));
+    }
+    items
 }
 
 /// Complete team_settings section.

@@ -6,6 +6,7 @@
 pub mod backend;
 pub mod code_actions;
 pub mod completion;
+pub mod completion_data;
 pub mod diagnostics;
 pub mod fleet;
 pub mod hover;
