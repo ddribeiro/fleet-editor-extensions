@@ -1,0 +1,18 @@
+{
+	// Custom path to the flint binary.
+	// Leave empty to use PATH lookup.
+	"binary_path": "",
+
+	// LSP client configuration
+	"client": {
+		"enabled": true,
+		"command": ["flint", "lsp"],
+		"selector": "source.yaml",
+		"schemes": ["file"],
+		"initializationOptions": {
+			// Fleet version to use for schema validation
+			"fleetVersion": "latest"
+		},
+		"settings": {}
+	}
+}

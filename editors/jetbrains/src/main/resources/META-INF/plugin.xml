@@ -1,0 +1,30 @@
+<idea-plugin>
+    <id>com.fleetdm.flint</id>
+    <name>Flint — Fleet GitOps</name>
+    <vendor email="help@fleetdm.com" url="https://fleetdm.com">Fleet Device Management</vendor>
+
+    <description><![CDATA[
+    Real-time validation and IntelliSense for Fleet GitOps YAML files.
+
+    <ul>
+      <li>17 lint rules: structural, semantic, security, deprecation</li>
+      <li>Autocompletion for all Fleet YAML fields</li>
+      <li>Hover documentation with Fleet docs links</li>
+      <li>Go-to-definition for path references</li>
+      <li>Inline diagnostics with quick-fix code actions</li>
+      <li>osquery table/platform compatibility checking</li>
+    </ul>
+
+    Requires the <code>flint</code> binary on PATH.
+    Install via: <code>brew install fleetdm/tap/flint</code> or download from
+    <a href="https://github.com/fleetdm/fleet-editor-extensions/releases">GitHub Releases</a>.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <platform.lsp.serverSupportProvider
+            implementation="com.fleetdm.flint.FlintLspServerSupportProvider"/>
+    </extensions>
+</idea-plugin>

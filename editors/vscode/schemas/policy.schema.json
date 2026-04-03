@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://fleetdm.com/schemas/policy.json",
+  "title": "Fleet Policy",
+  "description": "Schema for Fleet policy configuration",
+  "type": "object",
+  "required": ["name", "description", "query"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Policy name (identifier)",
+      "minLength": 1,
+      "examples": [
+        "macOS - Firewall enabled",
+        "Windows - BitLocker encryption",
+        "Linux - Automatic updates enabled"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "description": "Policy description - explains what the policy checks and why it matters",
+      "minLength": 1,
+      "examples": [
+        "Checks if the system firewall is enabled to protect against unauthorized network access",
+        "Verifies full disk encryption is active on the device"
+      ]
+    },
+    "query": {
+      "type": "string",
+      "description": "SQL query that determines policy compliance. Query should return rows when compliant (passing), no rows when non-compliant (failing)",
+      "minLength": 1,
+      "examples": [
+        "SELECT 1 FROM disk_encryption WHERE encrypted=1;",
+        "SELECT 1 FROM system_info WHERE hostname LIKE '%-MBP-%';",
+        "SELECT 1 FROM windows_security_center WHERE firewall='Good';"
+      ]
+    },
+    "platform": {
+      "type": "string",
+      "description": "Target operating system - leave empty for all platforms",
+      "enum": ["", "darwin", "windows", "linux", "chrome"],
+      "default": "",
+      "examples": ["darwin", "windows", "linux"]
+    },
+    "critical": {
+      "type": "boolean",
+      "description": "Mark policy as critical",
+      "default": false
+    },
+    "calendar_events_enabled": {
+      "type": "boolean",
+      "description": "Enable calendar events for this policy",
+      "default": false
+    },
+    "conditional_access_enabled": {
+      "type": "boolean",
+      "description": "Enable conditional access for this policy",
+      "default": false
+    },
+    "labels_include_any": {
+      "type": "array",
+      "description": "Policy applies to hosts with any of these labels",
+      "items": {
+        "type": "string",
+        "examples": ["macOS", "Windows", "All Hosts", "Servers", "Workstations"]
+      },
+      "examples": [
+        ["macOS"],
+        ["Windows", "Linux"]
+      ]
+    },
+    "install_software": {
+      "type": "object",
+      "description": "Software to install when policy fails (Premium feature, team-level only)",
+      "oneOf": [
+        {
+          "required": ["package_path"],
+          "properties": {
+            "package_path": {
+              "type": "string",
+              "description": "Path to software package"
+            }
+          }
+        },
+        {
+          "required": ["hash_sha256"],
+          "properties": {
+            "hash_sha256": {
+              "type": "string",
+              "description": "SHA256 hash of software package",
+              "pattern": "^[a-fA-F0-9]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "run_script": {
+      "type": "object",
+      "description": "Script to run when policy fails (Premium feature, team-level only)",
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to script file"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

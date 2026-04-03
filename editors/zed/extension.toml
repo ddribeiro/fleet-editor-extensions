@@ -1,0 +1,12 @@
+id = "flint"
+name = "Flint — Fleet GitOps"
+version = "0.1.2"
+schema_version = 1
+authors = ["Henry Stamerjohann>"]
+description = "Fleet GitOps YAML linting, completions, and diagnostics"
+repository = "https://github.com/headmin/fleet-editor-extensions"
+
+[language_servers.flint-lsp]
+name = "Flint LSP"
+languages = ["YAML"]
+language_ids = { "YAML" = "yaml" }

@@ -1,0 +1,159 @@
+{
+  "name": "flint",
+  "displayName": "Flint — Fleet GitOps",
+  "description": "Linter and language server for Fleet GitOps YAML configuration files",
+  "version": "0.1.2",
+  "publisher": "fleetdm",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fleetdm/flint-vscode"
+  },
+  "engines": {
+    "vscode": "^1.84.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "fleet",
+    "gitops",
+    "yaml",
+    "osquery",
+    "mdm",
+    "device management"
+  ],
+  "activationEvents": [
+    "onLanguage:yaml",
+    "workspaceContains:**/.fleetlint.toml",
+    "workspaceContains:**/default.yml",
+    "workspaceContains:**/default.yaml",
+    "workspaceContains:**/fleets/*.yml",
+    "workspaceContains:**/fleets/*.yaml",
+    "workspaceContains:**/teams/*.yml",
+    "workspaceContains:**/teams/*.yaml",
+    "workspaceContains:**/platforms/**/*.yml",
+    "workspaceContains:**/platforms/**/*.yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Fleet GitOps",
+      "properties": {
+        "flint.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Fleet GitOps LSP validation"
+        },
+        "flint.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to flint binary. If empty, uses bundled binary or PATH."
+        },
+        "flint.fleetVersion": {
+          "type": "string",
+          "default": "latest",
+          "description": "Fleet version for schema validation"
+        },
+        "flint.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Debug: log raw LSP protocol traffic to the output channel (off for normal use)"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "flint.getStarted",
+        "title": "Fleet: Get Started"
+      },
+      {
+        "command": "flint.openDefaultYml",
+        "title": "Fleet: Open default.yml"
+      },
+      {
+        "command": "flint.restartServer",
+        "title": "Fleet: Restart Language Server"
+      },
+      {
+        "command": "flint.showOutput",
+        "title": "Fleet: Show Output Channel"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "flint-get-started",
+        "title": "Get Started with Fleet GitOps",
+        "description": "Set up your Fleet GitOps repository with validation and IntelliSense.",
+        "steps": [
+          {
+            "id": "scaffold",
+            "title": "Scaffold a GitOps Repository",
+            "description": "Create the directory structure for a Fleet GitOps repo with example configuration files.\n\n[Scaffold Repository](command:flint.getStarted)",
+            "media": {
+              "markdown": "walkthroughs/scaffold.md"
+            },
+            "completionEvents": [
+              "onCommand:flint.getStarted"
+            ]
+          },
+          {
+            "id": "explore-default",
+            "title": "Edit Global Configuration",
+            "description": "Open ``default.yml`` to configure org-level policies, queries, and settings that apply to all hosts.\n\n[Open default.yml](command:flint.openDefaultYml)",
+            "media": {
+              "markdown": "walkthroughs/explore.md"
+            },
+            "completionEvents": [
+              "onCommand:flint.openDefaultYml"
+            ]
+          },
+          {
+            "id": "add-fleet",
+            "title": "Add a Fleet",
+            "description": "Create fleet-specific configurations in the ``fleets/`` directory. Each subdirectory is a separate fleet with its own policies and controls.",
+            "media": {
+              "markdown": "walkthroughs/add-fleet.md"
+            }
+          },
+          {
+            "id": "validate",
+            "title": "Validate Your Config",
+            "description": "The extension validates your YAML in real-time as you type. Look for squiggly underlines — hover for details and use the lightbulb for quick fixes.",
+            "media": {
+              "markdown": "walkthroughs/validate.md"
+            }
+          }
+        ]
+      }
+    ],
+    "yamlValidation": []
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.84.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  }
+}

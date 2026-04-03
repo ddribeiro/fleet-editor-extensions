@@ -1,0 +1,27 @@
+Flint: Fleet GitOps YAML Linter
+================================
+
+Thank you for installing Flint!
+
+This package provides Language Server Protocol support for Fleet GitOps
+configuration files (default.yml, fleets/*.yml, platforms/**/*.yml).
+
+Features:
+- Real-time validation of Fleet configuration syntax
+- Context-aware autocompletion for fields and values
+- Hover documentation for osquery tables and Fleet fields
+- File path completions for 'path:' values
+- Go-to-definition for referenced files
+- Deprecation warnings with version-gated severity
+
+Getting Started:
+1. The flint binary will be auto-downloaded on first use
+2. Open any Fleet GitOps YAML file to activate the server
+3. Start typing to see completions and validation
+
+Manual Installation (optional):
+If you prefer to manage the binary yourself, set "binary_path" in settings:
+  Preferences > Package Settings > LSP > Servers > LSP-flint > Settings
+
+For more information:
+  https://github.com/headmin/fleet-editor-extensions
