@@ -1,4 +1,4 @@
-name: Build Linux LSP Binaries
+name: Build Linux Binaries
 
 on:
   push:
@@ -7,23 +7,21 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version override (e.g., 0.1.0)"
+        description: "Version override (e.g., 0.1.2)"
         required: false
         type: string
       upload_to_release:
-        description: "Upload to existing release tag (e.g., v0.1.0)"
+        description: "Upload to existing release tag (e.g., v0.1.2)"
         required: false
-        default: "v0.1.0"
         type: string
 
 env:
   RUST_BACKTRACE: 1
-  BINARY_NAME: fleet-schema-gen
+  BINARY_NAME: flint
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
 
 jobs:
-  # ============================================================
-  # Build Linux x86_64 binary
-  # ============================================================
   build-linux-x64:
     runs-on: ubuntu-latest
     outputs:
@@ -42,12 +40,11 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            fleet-schema-gen/target
-          key: ${{ runner.os }}-x64-cargo-${{ hashFiles('fleet-schema-gen/Cargo.lock') }}
+            target
+          key: ${{ runner.os }}-x64-cargo-${{ hashFiles('Cargo.lock') }}
 
       - name: Get version
         id: version
-        working-directory: fleet-schema-gen
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
@@ -58,33 +55,29 @@ jobs:
           echo "Building version: $VERSION"
 
       - name: Run tests
-        working-directory: fleet-schema-gen
-        run: cargo test --release
+        run: cargo test --workspace --release
 
       - name: Build binary
-        working-directory: fleet-schema-gen
         run: |
-          cargo build --release
-
+          cargo build --release -p ${{ env.BINARY_NAME }}
           mkdir -p dist
           cp target/release/${{ env.BINARY_NAME }} dist/
           strip dist/${{ env.BINARY_NAME }}
 
       - name: Test binary
-        working-directory: fleet-schema-gen
         run: ./dist/${{ env.BINARY_NAME }} --version
 
       - name: Create distribution archive
-        working-directory: fleet-schema-gen/dist
+        working-directory: dist
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           ARCHIVE="${{ env.BINARY_NAME }}-${VERSION}-linux-x64.tar.gz"
 
           sha256sum ${{ env.BINARY_NAME }} > ${{ env.BINARY_NAME }}.sha256
-          tar -czf "$ARCHIVE" ${{ env.BINARY_NAME }} ${{ env.BINARY_NAME }}.sha256
+          tar -czf "$ARCHIVE" ${{ env.BINARY_NAME }}
           sha256sum "$ARCHIVE" > "${ARCHIVE}.sha256"
 
-          echo "=== Distribution contents ==="
+          echo "=== Distribution ==="
           ls -la
 
       - name: Upload artifact
@@ -92,13 +85,10 @@ jobs:
         with:
           name: ${{ env.BINARY_NAME }}-linux-x64
           path: |
-            fleet-schema-gen/dist/*.tar.gz
-            fleet-schema-gen/dist/*.tar.gz.sha256
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
           retention-days: 90
 
-  # ============================================================
-  # Build Linux ARM64 binary (cross-compiled)
-  # ============================================================
   build-linux-arm64:
     runs-on: ubuntu-latest
 
@@ -122,12 +112,11 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            fleet-schema-gen/target
-          key: ${{ runner.os }}-arm64-cargo-${{ hashFiles('fleet-schema-gen/Cargo.lock') }}
+            target
+          key: ${{ runner.os }}-arm64-cargo-${{ hashFiles('Cargo.lock') }}
 
       - name: Get version
         id: version
-        working-directory: fleet-schema-gen
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
@@ -138,27 +127,25 @@ jobs:
           echo "Building version: $VERSION"
 
       - name: Build binary
-        working-directory: fleet-schema-gen
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
-          cargo build --release --target aarch64-unknown-linux-gnu
-
+          cargo build --release -p ${{ env.BINARY_NAME }} --target aarch64-unknown-linux-gnu
           mkdir -p dist
           cp target/aarch64-unknown-linux-gnu/release/${{ env.BINARY_NAME }} dist/
           aarch64-linux-gnu-strip dist/${{ env.BINARY_NAME }} || echo "Strip failed, continuing..."
 
       - name: Create distribution archive
-        working-directory: fleet-schema-gen/dist
+        working-directory: dist
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           ARCHIVE="${{ env.BINARY_NAME }}-${VERSION}-linux-arm64.tar.gz"
 
           sha256sum ${{ env.BINARY_NAME }} > ${{ env.BINARY_NAME }}.sha256
-          tar -czf "$ARCHIVE" ${{ env.BINARY_NAME }} ${{ env.BINARY_NAME }}.sha256
+          tar -czf "$ARCHIVE" ${{ env.BINARY_NAME }}
           sha256sum "$ARCHIVE" > "${ARCHIVE}.sha256"
 
-          echo "=== Distribution contents ==="
+          echo "=== Distribution ==="
           ls -la
 
       - name: Upload artifact
@@ -166,17 +153,16 @@ jobs:
         with:
           name: ${{ env.BINARY_NAME }}-linux-arm64
           path: |
-            fleet-schema-gen/dist/*.tar.gz
-            fleet-schema-gen/dist/*.tar.gz.sha256
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
           retention-days: 90
 
-  # ============================================================
-  # Upload to existing GitHub Release
-  # ============================================================
   upload-to-release:
     needs: [build-linux-x64, build-linux-arm64]
     runs-on: ubuntu-latest
     if: github.event.inputs.upload_to_release != ''
+    permissions:
+      contents: write
 
     steps:
       - name: Download all artifacts
@@ -186,15 +172,11 @@ jobs:
           merge-multiple: true
 
       - name: List artifacts
-        run: |
-          echo "=== Artifacts to upload ==="
-          ls -la dist/
+        run: ls -la dist/
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.upload_to_release }}
           files: dist/*
           fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
