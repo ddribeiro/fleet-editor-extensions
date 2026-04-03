@@ -16,8 +16,6 @@ Fleet GitOps YAML linter and language server — catches configuration errors, t
 
 - **18 lint rules** — structural validation, semantic checks, security hygiene, deprecation warnings
 - **LSP server** — real-time diagnostics, completions, hover docs, go-to-definition, code actions
-- **`--fix`** — auto-apply safe fixes (typo corrections, deprecated key renames)
-- **`--format json`** — structured output for CI pipelines
 - **Migration reports** — JSON-based migration planning for Fleet version upgrades
 - **Agent integration** — `help-ai` progressive discovery for AI-assisted workflows
 
@@ -33,10 +31,19 @@ graph LR
 
 ## Quick start
 
-```bash
-# Install (macOS)
-curl -fsSL https://raw.githubusercontent.com/headmin/fleet-editor-extensions/main/scripts/install.sh | sh
+**macOS** — download the signed & notarized PKG:
 
+> [flint-0.1.2.pkg](https://github.com/headmin/fleet-editor-extensions/releases/latest/download/flint-0.1.2.pkg)
+
+**Linux** — install via script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/headmin/fleet-editor-extensions/main/scripts/install.sh | sh
+```
+
+Then:
+
+```bash
 # Lint a Fleet GitOps repo
 flint check .
 
@@ -49,13 +56,12 @@ flint init
 
 ## Editor support
 
-| Editor | Status | Install |
-|--------|--------|---------|
-| **VS Code** | Full LSP | Install Flint `.vsix` from [releases](https://github.com/headmin/fleet-editor-extensions/releases) |
-| **Zed** | Full LSP | Install Flint from Zed extension gallery |
-| **Sublime Text** | Full LSP | Install Flint LSP package |
-| **JetBrains** | Full LSP | Install Flint plugin |
-| **Neovim** | Full LSP | `require('flint').setup()` |
+| Editor | Install |
+|--------|---------|
+| **VS Code** | Download [flint-0.1.2.vsix](https://github.com/headmin/fleet-editor-extensions/releases/latest/download/flint-0.1.2.vsix) → `Extensions: Install from VSIX` |
+| **Zed** | Download [flint-zed-extension-0.1.2.zip](https://github.com/headmin/fleet-editor-extensions/releases/latest/download/flint-zed-extension-0.1.2.zip) → install `flint` binary to PATH |
+| **Sublime Text** | Install `flint` binary, add [LSP-flint](editors.md) config |
+| **Neovim** | Install `flint` binary, configure as LSP with `cmd = {"flint", "lsp"}` |
 
 ## How it works
 
