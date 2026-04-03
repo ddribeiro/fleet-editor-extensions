@@ -1,0 +1,7 @@
+name = "flint-0.1.2.pkg"
+identifier = "io.declarative.flint.pkg"
+version = "0.1.2"
+install_location = "/"
+
+[signing_info]
+identity = "Developer ID Installer: Declarative IT GmbH (D6G4X4D7C9)"

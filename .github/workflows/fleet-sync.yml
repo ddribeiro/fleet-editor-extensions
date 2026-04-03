@@ -1,0 +1,112 @@
+# Fleet Sync Check
+#
+# Validates that flint's schema stays compatible with Fleet's latest templates.
+# Runs weekly and on demand. Catches drift before users do.
+#
+# What it does:
+# 1. Checks out both this repo and fleetdm/fleet
+# 2. Builds flint from source
+# 3. Runs `fleetctl new` to generate a fresh GitOps repo
+# 4. Runs `flint check` against that output
+# 5. Fails if any errors — means Fleet added keys/renames we don't support yet
+
+name: Fleet Sync Check
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday 9am UTC
+  workflow_dispatch:       # Manual trigger
+  pull_request:
+    paths:
+      - 'crates/flint-lint/src/structure.rs'
+      - 'crates/flint-lint/src/rules.rs'
+      - 'crates/flint-lint/src/semantic.rs'
+      - 'crates/flint-lint/src/deprecations.rs'
+      - 'FLEET_SYNC.toml'
+
+jobs:
+  sync-check:
+    name: Validate against Fleet templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout flint
+        uses: actions/checkout@v4
+
+      - name: Checkout Fleet repo
+        uses: actions/checkout@v4
+        with:
+          repository: fleetdm/fleet
+          path: fleet
+          sparse-checkout: |
+            cmd/fleetctl/fleetctl/templates/new
+            docs/Configuration/yaml-files.md
+            pkg/spec/gitops.go
+          sparse-checkout-cone-mode: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build flint
+        run: cargo build -p flint --release
+
+      - name: Copy Fleet templates as test repo
+        run: |
+          # Use the embedded templates directly (no Go build needed)
+          mkdir -p /tmp/fleet-test
+          cp -r fleet/cmd/fleetctl/fleetctl/templates/new/* /tmp/fleet-test/
+
+          # Strip .template from filenames (mimics fleetctl new behavior)
+          find /tmp/fleet-test -name "*.template.*" | while read f; do
+            mv "$f" "$(echo "$f" | sed 's/\.template//')"
+          done
+
+          # Replace template variables with defaults
+          find /tmp/fleet-test -name "*.yml" -o -name "*.yaml" | xargs sed -i 's/<%= .org_name %>/Test Organization/g' 2>/dev/null || true
+
+          echo "Test repo structure:"
+          ./target/release/flint tree /tmp/fleet-test
+
+      - name: Run flint check
+        id: lint
+        run: |
+          set +e
+          ./target/release/flint check /tmp/fleet-test --format json > /tmp/results.json 2>&1
+          EXIT_CODE=$?
+
+          echo "--- Results ---"
+          cat /tmp/results.json | jq .
+
+          ERRORS=$(jq '.summary.errors // 0' /tmp/results.json)
+          WARNINGS=$(jq '.summary.warnings // 0' /tmp/results.json)
+          FILES=$(jq '.summary.files_linted // 0' /tmp/results.json)
+
+          echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
+          echo "warnings=$WARNINGS" >> "$GITHUB_OUTPUT"
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "::error::Flint has $ERRORS error(s) against Fleet's latest templates. Fleet likely added new YAML keys or renames. Update structure.rs and rules.rs."
+            exit 1
+          fi
+
+          echo "✓ Flint validated $FILES file(s) with 0 errors against Fleet templates"
+
+      - name: Check for Fleet schema changes
+        if: always()
+        run: |
+          echo "=== Recent Fleet schema changes ==="
+          cd fleet
+          git log --oneline -10 -- docs/Configuration/yaml-files.md pkg/spec/gitops.go cmd/fleetctl/fleetctl/templates/new/ 2>/dev/null || true
+
+          echo ""
+          echo "=== Active renames (renameto tags) ==="
+          grep -n 'renameto' pkg/spec/gitops.go server/fleet/app.go 2>/dev/null || echo "No renames found"

@@ -1,0 +1,66 @@
+/* Fleet brand colors for Zensical */
+
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #192147;
+  --md-primary-fg-color--light: #3e4771;
+  --md-primary-fg-color--dark: #0e152f;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #f9fafc;
+  --md-accent-fg-color: #009a7d;
+  --md-accent-fg-color--transparent: rgba(0, 154, 125, 0.1);
+  --md-accent-bg-color: #ffffff;
+
+  /* Admonition colors */
+  --md-admonition-fg-color: #192147;
+  --md-admonition-bg-color: #f9fafc;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #192147;
+  --md-primary-fg-color--light: #515774;
+  --md-primary-fg-color--dark: #0e152f;
+  --md-accent-fg-color: #00c99e;
+  --md-accent-fg-color--transparent: rgba(0, 201, 158, 0.1);
+}
+
+/* Header */
+.md-header {
+  background-color: #ffffff;
+  color: var(--md-primary-fg-color);
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.md-header__title {
+  color: var(--md-primary-fg-color);
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  border-bottom: 1px solid #313244;
+}
+
+[data-md-color-scheme="slate"] .md-header__title {
+  color: #cdd6f4;
+}
+
+/* Links use Fleet green */
+.md-typeset a {
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset a:hover {
+  color: #007d65;
+}
+
+/* Nav active uses Fleet green */
+.md-nav__link--active,
+.md-nav__link:is(:focus, :hover) {
+  color: var(--md-accent-fg-color);
+}
+
+/* Code blocks */
+.md-typeset code {
+  border-radius: 4px;
+}

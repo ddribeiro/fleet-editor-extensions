@@ -1,1 +1,32 @@
+# Build output
+dist/
+target/
+
+# Platform artifacts
 .DS_Store
+*.wasm
+
+# Editor/IDE
+editors/zed/target/
+editors/vscode/out/
+editors/vscode/node_modules/
+editors/vscode/*.vsix
+
+# Rust
+Cargo.lock
+
+# Internal docs (not for public repo)
+cockpit/
+COCKPIT-METHODOLOGY.md
+
+# Local config (may contain credentials/paths)
+.fleetlint.toml
+
+# Python / Zensical docs
+docs/.venv/
+docs/site/
+__pycache__/
+
+# Package builds
+pkg/*/build/
+pkg/*/payload/

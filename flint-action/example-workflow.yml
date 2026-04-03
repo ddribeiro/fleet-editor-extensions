@@ -1,0 +1,37 @@
+# Example: .github/workflows/flint.yml
+#
+# Add this to your Fleet GitOps repository to validate YAML on every push/PR.
+
+name: Flint
+
+on:
+  push:
+    branches: [main]
+    paths: ['**.yml', '**.yaml', '.fleetlint.toml']
+  pull_request:
+    paths: ['**.yml', '**.yaml', '.fleetlint.toml']
+
+jobs:
+  lint:
+    name: Lint Fleet YAML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run flint
+        uses: fleetdm/fleet-editor-extensions/flint-action@main
+        with:
+          path: '.'
+          format: 'text'
+
+  # Optional: also run fleetctl gitops --dry-run for server-side validation
+  # validate:
+  #   name: GitOps Dry Run
+  #   runs-on: ubuntu-latest
+  #   needs: lint
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: fleetdm/fleet-gitops@main
+  #       env:
+  #         FLEET_URL: ${{ secrets.FLEET_URL }}
+  #         FLEET_API_TOKEN: ${{ secrets.FLEET_API_TOKEN }}

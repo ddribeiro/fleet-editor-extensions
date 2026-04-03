@@ -1,0 +1,25 @@
+# Example .fleetlint.toml — copy to .fleetlint.toml and customize
+# Or run: flint init
+
+[rules]
+disabled = []                        # Rules to skip entirely
+warn = ["interval-validation"]       # Downgrade to warnings
+
+[thresholds]
+min_interval = 60                    # Minimum query interval (seconds)
+max_interval = 86400                 # Maximum query interval (24h)
+
+[files]
+include = ["**/*.yml", "**/*.yaml"]
+exclude = ["node_modules", "target", "dist"]
+
+[deprecations]
+fleet_version = "latest"             # Target Fleet version
+future_names = false                 # Opt-in to new naming (reports, settings, fleets)
+
+[fleet]
+# url = "https://fleet.example.com"  # Fleet server URL
+# token = "$FLEET_API_TOKEN"         # API token (env var or op:// reference)
+# fleetctl = "fleetctl"              # Path to fleetctl binary
+gitops_validation = false            # fleetctl --dry-run on save (LSP only)
+live_completions = false             # Fetch labels/fleets/reports (LSP only)

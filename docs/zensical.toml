@@ -1,0 +1,64 @@
+[project]
+
+site_name = "Flint"
+site_description = "Fleet GitOps YAML linter and language server — catches config errors before fleetctl gitops runs"
+site_author = "Henry Stamerjohann"
+site_url = "https://flint.macadmin.me/"
+copyright = """
+Copyright &copy; 2026 Henry Stamerjohann
+"""
+
+nav = [
+  { "Home" = "index.md" },
+  { "Installation" = "install.md" },
+  { "Getting started" = "getting-started.md" },
+  { "Editors" = "editors.md" },
+  { "Rules" = "rules.md" },
+  { "Configuration" = "configuration.md" },
+  { "Migration" = "migration.md" },
+  { "Fleet variables" = "fleet-variables.md" },
+  { "API reference" = "api-reference.md" },
+  { "CI/CD" = "ci.md" },
+]
+
+extra_css = ["stylesheets/fleet.css"]
+
+[project.theme]
+language = "en"
+features = [
+    "content.code.annotate",
+    "content.code.copy",
+    "content.code.select",
+    "content.tooltips",
+    "navigation.footer",
+    "navigation.indexes",
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.path",
+    "navigation.sections",
+    "navigation.top",
+    "navigation.tracking",
+    "search.highlight",
+]
+
+[project.theme.font]
+text = "Inter"
+code = "JetBrains Mono"
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "custom"
+accent = "custom"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "custom"
+accent = "custom"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/headmin/fleet-editor-extensions"

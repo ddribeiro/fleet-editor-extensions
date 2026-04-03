@@ -1,0 +1,150 @@
+# sync.toml — How to keep flint in sync with Fleet.
+#
+# This file is the single source of truth for the sync process.
+# No tooling required — just grep, diff, and the recipes below.
+#
+# Precedence when sources disagree:
+#   Go struct tags > Go validation code > fleetctl templates > docs
+#   (docs lag behind code; always trust renameto tags over yaml-files.md)
+
+# ═══════════════════════════════════════════════════════════
+# RECIPES — run these against a local Fleet checkout
+# ═══════════════════════════════════════════════════════════
+#
+# Set FLEET=path/to/fleet first:
+#   export FLEET=../fleet
+#
+# ── 1. Find active renames (HIGHEST PRIORITY) ────────────
+# These break users immediately — old key works, new key gets "unknown key" error.
+#
+#   grep -n 'renameto' $FLEET/pkg/spec/gitops.go $FLEET/server/fleet/app.go $FLEET/server/fleet/teams.go
+#
+# Each match shows: json:"old_name" renameto:"new_name"
+# Action: add new_name as alias in structure.rs schema + KEY_REGISTRY.
+# If it's a major rename, also add to deprecations.rs with version gates.
+#
+# Maps to: crates/flint-lint/src/structure.rs
+#          crates/flint-lint/src/deprecations.rs
+# Constraint: human review — choose deprecated_in / error_in versions
+#
+# ── 2. Find new/changed YAML keys ────────────────────────
+# The GitOps struct in gitops.go defines what keys fleetctl accepts.
+# (Do NOT grep all of server/fleet/*.go — those contain API-only fields.)
+#
+#   grep -n 'json:"' $FLEET/pkg/spec/gitops.go | grep -v '//'
+#
+# Compare against our KEY_REGISTRY:
+#   grep 'reg.register' crates/flint-lint/src/structure.rs | sed 's/.*("\([^"]*\)".*/\1/' | sort -u > /tmp/flint_keys.txt
+#   grep -oP 'json:"([^",]+)' $FLEET/pkg/spec/gitops.go | sed 's/json:"//' | sort -u > /tmp/fleet_keys.txt
+#   comm -23 /tmp/fleet_keys.txt /tmp/flint_keys.txt
+#
+# Action: add missing keys to the appropriate mapping() in structure.rs + reg.register() in KEY_REGISTRY.
+#
+# Maps to: crates/flint-lint/src/structure.rs
+#          crates/flint-lint/src/fleet_config.rs
+#
+# ── 3. Find scaffold structure changes ────────────────────
+# The fleetctl new templates define the canonical directory layout.
+#
+#   find $FLEET/cmd/fleetctl/fleetctl/templates/new/platforms -type d | sort
+#
+# Compare against our scaffold in backend.rs:
+#   grep -A1 'platform_subdirs' crates/flint-lsp/src/backend.rs
+#
+# Maps to: crates/flint-lsp/src/backend.rs (scaffold_gitops_repo function)
+#
+# ── 4. Find platform changes ─────────────────────────────
+# Rarely changes, but check when a new OS is supported.
+#
+#   grep -n 'Platform' $FLEET/server/fleet/hosts.go | head -20
+#
+# Maps to: crates/flint-lint/src/rules.rs (platform validation arrays)
+#
+# ── 5. Find category changes ─────────────────────────────
+# Software categories for the self-service catalog.
+#
+#   grep -n 'SoftwareCategory' $FLEET/server/fleet/software_installer.go | head -20
+#
+# Maps to: crates/flint-lint/src/semantic.rs (VALID_CATEGORIES)
+#
+# ── 6. Validate — the final check ────────────────────────
+# After making changes, run flint against the real fleetctl new output:
+#
+#   flint check /path/to/fleetctl-new-output
+#   cargo test -p flint-lint --test fleet_compat -- --ignored
+#
+# Both must show 0 errors before shipping.
+
+# ═══════════════════════════════════════════════════════════
+# SOURCES — Fleet files to watch for changes
+# ═══════════════════════════════════════════════════════════
+
+[sources.renames]
+files   = ["pkg/spec/gitops.go", "server/fleet/app.go", "server/fleet/teams.go"]
+pattern = 'renameto:"([^"]+)"'
+why     = "Go renameto tags are active renames — both old and new keys work in YAML"
+
+[sources.yaml_keys]
+files   = ["pkg/spec/gitops.go"]
+pattern = 'json:"([^",]+)"'
+why     = "The GitOps struct defines what fleetctl gitops accepts"
+
+[sources.scaffold]
+files   = ["cmd/fleetctl/fleetctl/templates/new/"]
+why     = "fleetctl new generates the canonical directory layout"
+
+[sources.platforms]
+files   = ["server/fleet/hosts.go"]
+why     = "Platform constants used in validation"
+
+[sources.categories]
+files   = ["server/fleet/software_installer.go"]
+why     = "Software category enum for self-service catalog"
+
+[sources.docs]
+files   = ["docs/Configuration/yaml-files.md"]
+why     = "Official reference — but lags behind Go code. Use for context, not truth."
+
+# ═══════════════════════════════════════════════════════════
+# TARGETS — which flint files to update
+# ═══════════════════════════════════════════════════════════
+
+[targets.structure]
+path = "crates/flint-lint/src/structure.rs"
+what = "Schema tree (mapping/array/leaf) + KEY_REGISTRY"
+
+[targets.deprecations]
+path = "crates/flint-lint/src/deprecations.rs"
+what = "Rename entries with version gates (deprecated_in → error_in → removed_in)"
+
+[targets.rules]
+path = "crates/flint-lint/src/rules.rs"
+what = "Platform validation, logging types"
+
+[targets.semantic]
+path = "crates/flint-lint/src/semantic.rs"
+what = "VALID_CATEGORIES, file extensions, label membership types"
+
+[targets.fleet_config]
+path = "crates/flint-lint/src/fleet_config.rs"
+what = "Serde structs for deserializing Fleet YAML (PolicyOrPath, etc.)"
+
+[targets.backend]
+path = "crates/flint-lsp/src/backend.rs"
+what = "Scaffold directory structure, platform subdirectories"
+
+# ═══════════════════════════════════════════════════════════
+# CONSTRAINTS — what needs human judgment
+# ═══════════════════════════════════════════════════════════
+
+[constraints]
+human_review = [
+    "Renames: choose deprecated_in / error_in / removed_in versions",
+    "New nested structs: design SchemaNode tree hierarchy",
+    "Validation logic changes: may need new lint rules",
+]
+auto_safe = [
+    "New key at existing path: add to mapping() + reg.register()",
+    "New platform string: add to platforms array",
+    "New category string: add to VALID_CATEGORIES",
+]

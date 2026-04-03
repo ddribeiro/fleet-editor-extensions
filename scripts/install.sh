@@ -1,180 +1,148 @@
-#!/bin/bash
-# Cougar Installation Script
+#!/bin/sh
+set -eu
+
+# Flint installer — downloads and installs the latest flint binary.
 #
 # Usage:
-#   curl -sSL https://raw.githubusercontent.com/yourusername/cougar/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/headmin/fleet-editor-extensions/main/scripts/install.sh | sh
 #
-# Or with version:
-#   curl -sSL https://raw.githubusercontent.com/yourusername/cougar/main/scripts/install.sh | bash -s v0.1.0
+# Options (via env vars):
+#   FLINT_VERSION=0.1.1                Pin to a specific version (default: latest)
+#   FLINT_INSTALL_DIR=/usr/local/bin   Install location (default: /usr/local/bin)
 
-set -e
+REPO="headmin/fleet-editor-extensions"
+BINARY="flint"
+INSTALL_DIR="${FLINT_INSTALL_DIR:-/usr/local/bin}"
 
-REPO="yourusername/cougar"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
-VERSION="${1:-latest}"
-GITHUB_API="https://api.github.com/repos/$REPO"
+# Colors (if terminal)
+if [ -t 1 ]; then
+    GREEN='\033[0;32m'
+    RED='\033[0;31m'
+    CYAN='\033[0;36m'
+    NC='\033[0m'
+else
+    GREEN='' RED='' CYAN='' NC=''
+fi
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+info()  { printf "${GREEN}[INFO]${NC} %s\n" "$1"; }
+error() { printf "${RED}[ERROR]${NC} %s\n" "$1" >&2; exit 1; }
+step()  { printf "${CYAN}[====]${NC} %s\n" "$1"; }
 
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Detect platform
 detect_platform() {
-    local os=$(uname -s)
-    local arch=$(uname -m)
+    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+    ARCH=$(uname -m)
 
-    case "$os" in
-        Linux)
-            case "$arch" in
-                x86_64)
-                    echo "linux-x86_64"
-                    ;;
-                *)
-                    log_error "Unsupported architecture: $arch"
-                    log_info "Only x86_64 Linux is supported via this installer"
-                    exit 1
-                    ;;
-            esac
-            ;;
-        Darwin)
-            log_error "macOS binaries are not available via this installer"
-            log_info "Please download from: https://github.com/$REPO/releases"
-            log_info "Or build locally with: ./scripts/build-macos.sh"
-            exit 1
-            ;;
-        *)
-            log_error "Unsupported OS: $os"
-            exit 1
-            ;;
+    case "$OS" in
+        darwin) OS="darwin" ;;
+        linux)  OS="linux" ;;
+        *)      error "Unsupported OS: $OS" ;;
     esac
+
+    case "$ARCH" in
+        x86_64|amd64)
+            if [ "$OS" = "darwin" ]; then
+                error "macOS Intel (x86_64) is not supported. Use Apple Silicon."
+            fi
+            ARCH="x64" ;;
+        aarch64|arm64)      ARCH="arm64" ;;
+        *)                  error "Unsupported architecture: $ARCH" ;;
+    esac
+
+    PLATFORM="${OS}-${ARCH}"
+    info "Platform: $PLATFORM"
 }
 
-# Check dependencies
-check_dependencies() {
-    local missing=()
-
-    if ! command -v curl &> /dev/null; then
-        missing+=("curl")
+get_latest_version() {
+    if [ -n "${FLINT_VERSION:-}" ]; then
+        VERSION="$FLINT_VERSION"
+        info "Using pinned version: $VERSION"
+        return
     fi
 
-    if ! command -v tar &> /dev/null; then
-        missing+=("tar")
+    step "Fetching latest version"
+
+    if command -v curl >/dev/null 2>&1; then
+        VERSION=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+            | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/') || true
     fi
 
-    if [ ${#missing[@]} -ne 0 ]; then
-        log_error "Missing required dependencies: ${missing[*]}"
-        exit 1
+    # Fallback: list all releases (no /latest if only prereleases)
+    if [ -z "${VERSION:-}" ]; then
+        VERSION=$(curl -fsSL "https://api.github.com/repos/$REPO/releases" 2>/dev/null \
+            | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/') || true
+    fi
+
+    if [ -z "${VERSION:-}" ]; then
+        error "Could not determine latest version. Set FLINT_VERSION=x.y.z manually."
+    fi
+
+    info "Latest version: $VERSION"
+}
+
+download_and_install() {
+    ARCHIVE="${BINARY}-${VERSION}-${PLATFORM}.tar.gz"
+    URL="https://github.com/$REPO/releases/download/v${VERSION}/${ARCHIVE}"
+
+    step "Downloading $ARCHIVE"
+
+    TMPDIR=$(mktemp -d)
+    trap 'rm -rf "$TMPDIR"' EXIT
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$URL" -o "$TMPDIR/$ARCHIVE" || error "Download failed: $URL"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "$URL" -O "$TMPDIR/$ARCHIVE" || error "Download failed: $URL"
+    else
+        error "Neither curl nor wget found"
+    fi
+
+    step "Extracting"
+    tar -xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR"
+
+    if [ ! -f "$TMPDIR/$BINARY" ]; then
+        error "Binary not found in archive"
+    fi
+
+    step "Installing to $INSTALL_DIR"
+
+    if [ -w "$INSTALL_DIR" ]; then
+        mv "$TMPDIR/$BINARY" "$INSTALL_DIR/$BINARY"
+        chmod +x "$INSTALL_DIR/$BINARY"
+    else
+        info "Requires sudo for $INSTALL_DIR"
+        sudo mv "$TMPDIR/$BINARY" "$INSTALL_DIR/$BINARY"
+        sudo chmod +x "$INSTALL_DIR/$BINARY"
     fi
 }
 
-# Get download URL from GitHub releases
-get_download_url() {
-    local platform="$1"
-    local api_url
+verify() {
+    step "Verifying"
 
-    if [ "$VERSION" = "latest" ]; then
-        api_url="$GITHUB_API/releases/latest"
-    else
-        api_url="$GITHUB_API/releases/tags/$VERSION"
+    if ! command -v "$INSTALL_DIR/$BINARY" >/dev/null 2>&1; then
+        error "$BINARY not found in PATH after install"
     fi
 
-    log_info "Fetching release info from GitHub..."
+    "$INSTALL_DIR/$BINARY" --version
 
-    local release_json=$(curl -fsSL "$api_url")
-    if [ $? -ne 0 ]; then
-        log_error "Failed to fetch release information"
-        exit 1
-    fi
-
-    # Extract download URL for the platform
-    local download_url=$(echo "$release_json" | grep -o "https://github.com/$REPO/releases/download/[^\"]*${platform}.tar.gz" | head -1)
-
-    if [ -z "$download_url" ]; then
-        log_error "Could not find ${platform} release"
-        exit 1
-    fi
-
-    echo "$download_url"
-}
-
-# Download and install
-install_cougar() {
-    local platform=$(detect_platform)
-    local download_url=$(get_download_url "$platform")
-
-    log_info "Installing Cougar ($VERSION) for $platform"
-
-    # Create temp directory
-    local tmp_dir=$(mktemp -d)
-    trap "rm -rf $tmp_dir" EXIT
-
-    log_info "Downloading from GitHub releases..."
-
-    if ! curl -fSL "$download_url" -o "$tmp_dir/cougar.tar.gz"; then
-        log_error "Failed to download Cougar"
-        exit 1
-    fi
-
-    # Try to download checksum
-    if curl -fSL "${download_url}.sha256" -o "$tmp_dir/cougar.tar.gz.sha256" 2>/dev/null; then
-        log_info "Verifying checksum..."
-        cd "$tmp_dir"
-        if ! sha256sum -c cougar.tar.gz.sha256; then
-            log_error "Checksum verification failed"
-            exit 1
-        fi
-        cd - > /dev/null
-    else
-        log_warn "Checksum not available, skipping verification"
-    fi
-
-    # Extract
-    log_info "Extracting archive..."
-    tar -xzf "$tmp_dir/cougar.tar.gz" -C "$tmp_dir"
-
-    # Create install directory if it doesn't exist
-    mkdir -p "$INSTALL_DIR"
-
-    # Install binary
-    log_info "Installing to $INSTALL_DIR/cougar..."
-    mv "$tmp_dir/cougar" "$INSTALL_DIR/cougar"
-    chmod +x "$INSTALL_DIR/cougar"
-
-    log_info "Installation complete!"
-
-    # Check if install directory is in PATH
-    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-        log_warn "$INSTALL_DIR is not in your PATH"
-        log_info "Add it to your PATH by adding this to your shell profile:"
-        log_info '  export PATH="$HOME/.local/bin:$PATH"'
-    fi
-
-    # Show version
-    if command -v cougar &> /dev/null; then
-        log_info "Cougar version: $(cougar --version 2>&1 | head -1 || echo 'unknown')"
-    else
-        log_info "Run: export PATH=\"$INSTALL_DIR:\$PATH\" to use cougar"
-    fi
+    info "Installed successfully!"
+    echo ""
+    info "Get started:"
+    info "  flint init              # create .fleetlint.toml"
+    info "  flint check .           # lint your GitOps repo"
+    info "  flint setup-agent       # install Claude Code skills"
+    info "  flint help-ai           # agent command reference"
 }
 
 main() {
-    log_info "Cougar Installer"
-    check_dependencies
-    install_cougar
+    echo ""
+    echo "  Flint Installer"
+    echo "  Fleet GitOps YAML linter & language server"
+    echo ""
+
+    detect_platform
+    get_latest_version
+    download_and_install
+    verify
 }
 
-main "$@"
+main

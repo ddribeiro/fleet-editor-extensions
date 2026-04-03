@@ -1,0 +1,24 @@
+{
+  "name": "Fleet GitOps (Flint)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "fleetdm.flint",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "flint.enable": true
+      }
+    }
+  },
+  "remoteEnv": {
+    "FLEET_URL": "${localEnv:FLEET_URL}",
+    "FLEET_API_TOKEN": "${localEnv:FLEET_API_TOKEN}"
+  }
+}

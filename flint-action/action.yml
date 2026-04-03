@@ -1,0 +1,104 @@
+name: 'Flint — Fleet GitOps Lint'
+description: 'Validate Fleet GitOps YAML files with flint — catches typos, misplaced keys, invalid values, and more before fleetctl gitops runs.'
+author: 'Fleet Device Management'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'File or directory to lint (default: repository root)'
+    required: false
+    default: '.'
+  format:
+    description: 'Output format: text or json'
+    required: false
+    default: 'text'
+  version:
+    description: 'flint version to install (default: latest)'
+    required: false
+    default: 'latest'
+  config:
+    description: 'Path to .fleetlint.toml config file (auto-detected if omitted)'
+    required: false
+    default: ''
+
+outputs:
+  errors:
+    description: 'Number of errors found'
+    value: ${{ steps.lint.outputs.errors }}
+  warnings:
+    description: 'Number of warnings found'
+    value: ${{ steps.lint.outputs.warnings }}
+  exit_code:
+    description: 'Exit code (0 = clean, 1 = errors found)'
+    value: ${{ steps.lint.outputs.exit_code }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine platform
+      id: platform
+      shell: bash
+      run: |
+        case "${{ runner.os }}-${{ runner.arch }}" in
+          Linux-X64)   echo "target=linux-x64" >> "$GITHUB_OUTPUT" ;;
+          Linux-ARM64)  echo "target=linux-arm64" >> "$GITHUB_OUTPUT" ;;
+          macOS-X64)    echo "target=darwin-x64" >> "$GITHUB_OUTPUT" ;;
+          macOS-ARM64)  echo "target=darwin-arm64" >> "$GITHUB_OUTPUT" ;;
+          Windows-X64)  echo "target=win32-x64" >> "$GITHUB_OUTPUT" ;;
+          *) echo "::error::Unsupported platform: ${{ runner.os }}-${{ runner.arch }}"; exit 1 ;;
+        esac
+
+    - name: Install flint
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        TARGET="${{ steps.platform.outputs.target }}"
+
+        if [ "$VERSION" = "latest" ]; then
+          DOWNLOAD_URL="https://github.com/fleetdm/fleet-editor-extensions/releases/latest/download/flint-${TARGET}.tar.gz"
+        else
+          DOWNLOAD_URL="https://github.com/fleetdm/fleet-editor-extensions/releases/download/v${VERSION}/flint-${TARGET}.tar.gz"
+        fi
+
+        echo "::group::Downloading flint ($TARGET)"
+        curl -fsSL "$DOWNLOAD_URL" -o /tmp/flint.tar.gz
+        tar -xzf /tmp/flint.tar.gz -C /usr/local/bin/
+        chmod +x /usr/local/bin/flint
+        echo "::endgroup::"
+
+        flint --version
+
+    - name: Run flint
+      id: lint
+      shell: bash
+      run: |
+        set +e
+
+        ARGS="lint ${{ inputs.path }} --format ${{ inputs.format }}"
+
+        if [ -n "${{ inputs.config }}" ]; then
+          export FLEET_LINT_CONFIG="${{ inputs.config }}"
+        fi
+
+        OUTPUT=$(flint $ARGS 2>&1)
+        EXIT_CODE=$?
+
+        echo "$OUTPUT"
+
+        # Parse error/warning counts from JSON output for step outputs
+        if [ "${{ inputs.format }}" = "json" ]; then
+          ERRORS=$(echo "$OUTPUT" | jq -r '.summary.errors // 0')
+          WARNINGS=$(echo "$OUTPUT" | jq -r '.summary.warnings // 0')
+        else
+          ERRORS=$(echo "$OUTPUT" | grep -oP '\d+ error' | grep -oP '\d+' || echo "0")
+          WARNINGS=$(echo "$OUTPUT" | grep -oP '\d+ warning' | grep -oP '\d+' || echo "0")
+        fi
+
+        echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
+        echo "warnings=$WARNINGS" >> "$GITHUB_OUTPUT"
+        echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+        exit $EXIT_CODE

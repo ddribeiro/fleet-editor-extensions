@@ -1,0 +1,33 @@
+# Pre-commit hooks for Fleet GitOps YAML validation.
+#
+# Usage: add to your .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/fleetdm/fleet-editor-extensions
+#       rev: v0.1.1  # or latest tag
+#       hooks:
+#         - id: flint
+#
+# Requires flint binary on PATH. Install via:
+#   cargo install flint
+#   brew install fleetdm/tap/flint
+#   # or download from GitHub Releases
+
+- id: flint
+  name: Flint — Fleet GitOps Lint
+  description: Validate Fleet GitOps YAML files (policies, reports, controls, software, labels)
+  entry: flint check
+  language: system
+  types: [yaml]
+  files: '(default\.ya?ml|fleets/.*\.ya?ml|teams/.*\.ya?ml|lib/.*\.ya?ml|platforms/.*\.ya?ml|labels/.*\.ya?ml)'
+  pass_filenames: false
+  args: ['.']
+
+- id: flint-files
+  name: Flint — Fleet GitOps Lint (changed files only)
+  description: Lint only the Fleet YAML files that changed in this commit
+  entry: flint check
+  language: system
+  types: [yaml]
+  files: '(default\.ya?ml|fleets/.*\.ya?ml|teams/.*\.ya?ml|lib/.*\.ya?ml|platforms/.*\.ya?ml|labels/.*\.ya?ml)'
+  pass_filenames: true
