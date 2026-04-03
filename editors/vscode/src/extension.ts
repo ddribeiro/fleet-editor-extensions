@@ -85,6 +85,9 @@ export async function activate(context: ExtensionContext): Promise<void> {
             { scheme: 'file', language: 'yaml', pattern: '**/platforms/**/*.yaml' },
             { scheme: 'file', language: 'yaml', pattern: '**/labels/**/*.yml' },
             { scheme: 'file', language: 'yaml', pattern: '**/labels/**/*.yaml' },
+            // JSON files: DEP enrollment profiles and declaration profiles
+            { scheme: 'file', language: 'json', pattern: '**/enrollment-profiles/**/*.json' },
+            { scheme: 'file', language: 'json', pattern: '**/declaration-profiles/**/*.json' },
         ],
         initializationOptions: {
             fleetVersion: workspace.getConfiguration('flint').get<string>('fleetVersion', 'latest'),

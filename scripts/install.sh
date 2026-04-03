@@ -80,13 +80,34 @@ get_latest_version() {
 }
 
 download_and_install() {
+    TMPDIR=$(mktemp -d)
+    trap 'rm -rf "$TMPDIR"' EXIT
+
+    # macOS: use signed & notarized PKG installer
+    if [ "$OS" = "darwin" ]; then
+        PKG="${BINARY}-${VERSION}.pkg"
+        URL="https://github.com/$REPO/releases/download/v${VERSION}/${PKG}"
+
+        step "Downloading $PKG (signed & notarized)"
+
+        if command -v curl >/dev/null 2>&1; then
+            curl -fsSL "$URL" -o "$TMPDIR/$PKG" || error "Download failed: $URL"
+        elif command -v wget >/dev/null 2>&1; then
+            wget -q "$URL" -O "$TMPDIR/$PKG" || error "Download failed: $URL"
+        else
+            error "Neither curl nor wget found"
+        fi
+
+        step "Installing PKG (requires sudo)"
+        sudo installer -pkg "$TMPDIR/$PKG" -target / || error "PKG installation failed"
+        return
+    fi
+
+    # Linux: download tar.gz
     ARCHIVE="${BINARY}-${VERSION}-${PLATFORM}.tar.gz"
     URL="https://github.com/$REPO/releases/download/v${VERSION}/${ARCHIVE}"
 
     step "Downloading $ARCHIVE"
-
-    TMPDIR=$(mktemp -d)
-    trap 'rm -rf "$TMPDIR"' EXIT
 
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "$URL" -o "$TMPDIR/$ARCHIVE" || error "Download failed: $URL"

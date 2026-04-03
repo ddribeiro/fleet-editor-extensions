@@ -26,6 +26,11 @@
   ],
   "activationEvents": [
     "onLanguage:yaml",
+    "onLanguage:json",
+    "onCommand:flint.getStarted",
+    "onCommand:flint.openDefaultYml",
+    "onCommand:flint.restartServer",
+    "onCommand:flint.showOutput",
     "workspaceContains:**/.fleetlint.toml",
     "workspaceContains:**/default.yml",
     "workspaceContains:**/default.yaml",
@@ -137,8 +142,8 @@
     "yamlValidation": []
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "vscode:prepublish": "node esbuild.js --production",
+    "compile": "node esbuild.js",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "package": "vsce package",
@@ -152,8 +157,9 @@
     "@types/vscode": "^1.84.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.28.0",
     "eslint": "^8.54.0",
-    "typescript": "^5.3.0",
-    "@vscode/vsce": "^2.22.0"
+    "typescript": "^5.3.0"
   }
 }

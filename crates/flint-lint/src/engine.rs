@@ -159,16 +159,28 @@ impl Linter {
                         match serde_yaml::from_str::<serde_yaml::Value>(content) {
                             Ok(_) => FleetConfig::default(),
                             Err(e) => {
-                                let mut err =
-                                    LintError::error(format!("YAML parse error: {}", e), file_path)
-                                        .with_rule_code("yaml-syntax".to_string());
+                                let err_msg = e.to_string();
 
-                                if let Some(location) = e.location() {
-                                    err = err.with_location(location.line(), location.column());
+                                // Fleet's Go YAML parser accepts duplicate keys
+                                // (e.g. multiple `path:` under `packages:` or
+                                // `configuration_profiles:`). serde_yaml rejects
+                                // them but this is valid Fleet GitOps YAML — skip.
+                                if err_msg.contains("duplicate entry") {
+                                    FleetConfig::default()
+                                } else {
+                                    let mut err = LintError::error(
+                                        format!("YAML parse error: {}", e),
+                                        file_path,
+                                    )
+                                    .with_rule_code("yaml-syntax".to_string());
+
+                                    if let Some(location) = e.location() {
+                                        err = err.with_location(location.line(), location.column());
+                                    }
+
+                                    report.add(err);
+                                    return Ok(report);
                                 }
-
-                                report.add(err);
-                                return Ok(report);
                             }
                         }
                     }

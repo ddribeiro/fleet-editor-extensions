@@ -520,6 +520,62 @@ fn check_query_platform_compat(
     errors
 }
 
+/// Strip SQL comments from a query string.
+///
+/// Removes `/* ... */` block comments and `-- ...` line comments so that
+/// English text inside comments (e.g., apostrophes in "organization's")
+/// doesn't trigger false positives in quote balancing or keyword checks.
+fn strip_sql_comments(query: &str) -> String {
+    let mut result = String::with_capacity(query.len());
+    let bytes = query.as_bytes();
+    let len = bytes.len();
+    let mut i = 0;
+
+    while i < len {
+        if i + 1 < len && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+            // Block comment — skip until */
+            i += 2;
+            while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                i += 1;
+            }
+            i += 2; // skip */
+            result.push(' '); // replace comment with space to preserve token boundaries
+        } else if i + 1 < len && bytes[i] == b'-' && bytes[i + 1] == b'-' {
+            // Line comment — skip until newline
+            i += 2;
+            while i < len && bytes[i] != b'\n' {
+                i += 1;
+            }
+        } else {
+            result.push(bytes[i] as char);
+            i += 1;
+        }
+    }
+
+    result
+}
+
+/// Strip single-quoted string literals from SQL so keywords inside strings
+/// (e.g., `'%Drop Box%'`) don't trigger false positives.
+fn strip_sql_string_literals(sql: &str) -> String {
+    let mut result = String::with_capacity(sql.len());
+    let mut in_string = false;
+
+    for ch in sql.chars() {
+        if ch == '\'' {
+            in_string = !in_string;
+            result.push(ch);
+        } else if in_string {
+            // Replace string content with spaces to preserve positions
+            result.push(' ');
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
+}
+
 /// Find the most similar valid logging type for a suggestion.
 fn find_similar_logging(input: &str) -> String {
     let input_lower = input.to_lowercase();
@@ -791,8 +847,12 @@ impl Rule for QuerySyntaxRule {
 
 fn check_query_syntax(query: &str, item_name: &str, file: &Path) -> Vec<LintError> {
     let mut errors = Vec::new();
-    let query_upper = query.to_uppercase();
-    let _query_trimmed = query.trim();
+
+    // Strip SQL comments before analysis to avoid false positives from
+    // apostrophes in English text (e.g., "organization's") or keywords
+    // in comment blocks.
+    let query_stripped = strip_sql_comments(query);
+    let query_upper = query_stripped.to_uppercase();
 
     // Check for SELECT keyword
     if !query_upper.contains("SELECT") {
@@ -836,8 +896,8 @@ fn check_query_syntax(query: &str, item_name: &str, file: &Path) -> Vec<LintErro
         );
     }
 
-    // Check for unbalanced quotes (simple check)
-    let single_quotes = query.matches('\'').count();
+    // Check for unbalanced quotes (on comment-stripped query)
+    let single_quotes = query_stripped.matches('\'').count();
     if !single_quotes.is_multiple_of(2) {
         errors.push(
             LintError::error(format!("{} has unbalanced single quotes", item_name), file)
@@ -846,7 +906,10 @@ fn check_query_syntax(query: &str, item_name: &str, file: &Path) -> Vec<LintErro
     }
 
     // Check for common dangerous patterns (word-boundary aware to avoid false positives
-    // like "software_update" matching "UPDATE")
+    // like "software_update" matching "UPDATE").
+    // First strip string literals so keywords inside quotes (e.g., '%Drop Box%')
+    // don't trigger false positives.
+    let query_no_strings = strip_sql_string_literals(&query_upper);
     let is_dangerous_sql = |q: &str, keyword: &str| -> bool {
         for (i, _) in q.match_indices(keyword) {
             // Check character before — must be start-of-string or non-alphanumeric/underscore
@@ -860,10 +923,10 @@ fn check_query_syntax(query: &str, item_name: &str, file: &Path) -> Vec<LintErro
         }
         false
     };
-    if is_dangerous_sql(&query_upper, "DROP ")
-        || is_dangerous_sql(&query_upper, "DELETE ")
-        || is_dangerous_sql(&query_upper, "INSERT ")
-        || is_dangerous_sql(&query_upper, "UPDATE ")
+    if is_dangerous_sql(&query_no_strings, "DROP ")
+        || is_dangerous_sql(&query_no_strings, "DELETE ")
+        || is_dangerous_sql(&query_no_strings, "INSERT ")
+        || is_dangerous_sql(&query_no_strings, "UPDATE ")
     {
         errors.push(
             LintError::error(

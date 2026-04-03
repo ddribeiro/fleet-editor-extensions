@@ -1,14 +1,10 @@
 .vscode/**
 .vscode-test/**
 src/**
+node_modules/**
 .gitignore
 tsconfig.json
+esbuild.js
 **/*.ts
 **/*.map
 .eslintrc.json
-node_modules/.bin/**
-node_modules/**/test/**
-node_modules/**/tests/**
-node_modules/**/*.md
-node_modules/**/LICENSE*
-node_modules/**/CHANGELOG*

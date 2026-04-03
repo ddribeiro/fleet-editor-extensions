@@ -1,0 +1,509 @@
+# Flint LSP Completion Data
+#
+# This file is the single source of truth for all LSP completion snippets,
+# field suggestions, glob patterns, category values, and label names.
+#
+# Embedded at compile time via include_str! — no runtime file I/O.
+#
+# ## Snippet indentation rules
+#
+# Block snippets use LSP's ADJUST_INDENTATION mode. The editor adds the
+# cursor's base indentation to every line. Snippets only need RELATIVE
+# indentation from the first line:
+#
+#   Line 1: no leading spaces (inserted at cursor position)
+#   Line 2+: indented relative to line 1
+#
+# For list-item blocks (inserted after "- "), continuation lines need
+# 2-space indent to align under the first key (past the "- " marker):
+#
+#   - slug: slack/darwin        ← line 1 (at cursor)
+#     self_service: true        ← 2 spaces relative
+#     categories:               ← 2 spaces relative
+#       - Communication         ← 4 spaces relative
+#
+# Tab stops use LSP snippet syntax: ${1:default}, ${2:default}, etc.
+
+# ============================================================================
+# Categories — valid values for the `categories:` field
+# ============================================================================
+
+[categories]
+values = [
+  "Browsers",
+  "Communication",
+  "Developer tools",
+  "Productivity",
+  "Security",
+  "Utilities",
+]
+
+# ============================================================================
+# Labels — common Fleet label names suggested in labels_include_any/exclude_any
+# ============================================================================
+
+[[labels]]
+name = "Apple Silicon macOS hosts"
+description = "macOS hosts with ARM architecture"
+
+[[labels]]
+name = "x86-based Windows hosts"
+description = "Windows hosts with x86/x64 architecture"
+
+[[labels]]
+name = "Debian-based Linux hosts"
+description = "Ubuntu, Debian, and derivatives"
+
+[[labels]]
+name = "RPM-based Linux hosts"
+description = "RedHat, CentOS, Fedora, and derivatives"
+
+# ============================================================================
+# Fields — per-context field completions
+#
+# Each field has: name, description, required (default false)
+# The `context` key determines when the field is offered.
+# ============================================================================
+
+# --- fleet_maintained_apps ---
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "slug"
+description = "Fleet app identifier (e.g., slack/darwin)"
+required = true
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "self_service"
+description = "Allow users to install from Fleet Desktop"
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "setup_experience"
+description = "Install during device setup (DEP)"
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "labels_include_any"
+description = "Only install on hosts with these labels"
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "labels_exclude_any"
+description = "Don't install on hosts with these labels"
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "display_name"
+description = "Custom display name in Fleet UI"
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "categories"
+description = "App categories for organization"
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "post_install_script"
+description = "Script to run after installation"
+
+[[fields]]
+context = "fleet_maintained_apps"
+name = "pre_install_query"
+description = "Query that must pass before installation"
+
+# --- packages ---
+
+[[fields]]
+context = "packages"
+name = "path"
+description = "Path to software package YAML definition"
+required = true
+
+[[fields]]
+context = "packages"
+name = "self_service"
+description = "Allow users to install from Fleet Desktop"
+
+[[fields]]
+context = "packages"
+name = "setup_experience"
+description = "Install during device setup (DEP)"
+
+[[fields]]
+context = "packages"
+name = "categories"
+description = "App categories for organization"
+
+[[fields]]
+context = "packages"
+name = "labels_include_any"
+description = "Only install on hosts with these labels"
+
+[[fields]]
+context = "packages"
+name = "labels_exclude_any"
+description = "Don't install on hosts with these labels"
+
+[[fields]]
+context = "packages"
+name = "display_name"
+description = "Custom display name in Fleet UI"
+
+# --- app_store_apps ---
+
+[[fields]]
+context = "app_store_apps"
+name = "app_store_id"
+description = "Apple App Store or Google Play app ID"
+required = true
+
+[[fields]]
+context = "app_store_apps"
+name = "display_name"
+description = "Display name in Fleet UI"
+
+[[fields]]
+context = "app_store_apps"
+name = "self_service"
+description = "Allow users to install from Fleet Desktop"
+
+[[fields]]
+context = "app_store_apps"
+name = "setup_experience"
+description = "Install during device setup (DEP)"
+
+[[fields]]
+context = "app_store_apps"
+name = "platform"
+description = "Target platform (ios, ipados, android)"
+
+[[fields]]
+context = "app_store_apps"
+name = "categories"
+description = "App categories for organization"
+
+[[fields]]
+context = "app_store_apps"
+name = "auto_update_enabled"
+description = "Enable automatic app updates"
+
+[[fields]]
+context = "app_store_apps"
+name = "auto_update_window_start"
+description = "Update window start time (e.g., 21:00)"
+
+[[fields]]
+context = "app_store_apps"
+name = "auto_update_window_end"
+description = "Update window end time (e.g., 05:00)"
+
+[[fields]]
+context = "app_store_apps"
+name = "labels_include_any"
+description = "Only install on hosts with these labels"
+
+[[fields]]
+context = "app_store_apps"
+name = "labels_exclude_any"
+description = "Don't install on hosts with these labels"
+
+# --- configuration_profiles ---
+
+[[fields]]
+context = "configuration_profiles"
+name = "path"
+description = "Path to a single profile file"
+
+[[fields]]
+context = "configuration_profiles"
+name = "paths"
+description = "Glob pattern matching multiple profile files"
+
+[[fields]]
+context = "configuration_profiles"
+name = "labels_include_any"
+description = "Only apply to hosts with these labels"
+
+[[fields]]
+context = "configuration_profiles"
+name = "labels_exclude_any"
+description = "Don't apply to hosts with these labels"
+
+# --- scripts ---
+
+[[fields]]
+context = "scripts"
+name = "path"
+description = "Path to script file"
+required = true
+
+[[fields]]
+context = "scripts"
+name = "paths"
+description = "Glob pattern for script files"
+
+# ============================================================================
+# Blocks — full snippet templates inserted as list items
+#
+# `context` determines which completion context offers this block.
+# `snippet` uses relative indentation (see rules at top of file).
+# `filter` is the text the user types to trigger this (optional, defaults to name).
+# ============================================================================
+
+# --- fleet_maintained_apps blocks ---
+
+[[blocks]]
+context = "fleet_maintained_apps"
+name = "macOS app"
+description = "Fleet-maintained macOS app"
+snippet = """
+slug: ${1:slack/darwin}
+  self_service: ${2:true}
+  setup_experience: ${3:true}
+  categories:
+    - ${4:Communication}"""
+
+[[blocks]]
+context = "fleet_maintained_apps"
+name = "Windows app"
+description = "Fleet-maintained Windows app"
+snippet = """
+slug: ${1:slack/windows}
+  self_service: ${2:true}
+  setup_experience: ${3:true}
+  categories:
+    - ${4:Communication}
+  labels_include_any:
+    - "x86-based Windows hosts\""""
+
+[[blocks]]
+context = "fleet_maintained_apps"
+name = "macOS app (ARM only)"
+description = "Fleet-maintained macOS app restricted to Apple Silicon"
+snippet = """
+slug: ${1:docker-desktop/darwin}
+  self_service: ${2:true}
+  labels_include_any:
+    - Apple Silicon macOS hosts
+  categories:
+    - ${3:Developer tools}"""
+
+# --- packages blocks ---
+# `{base}` is resolved at runtime to the relative path to the repo's
+# lib directory (platforms/ or lib/) from the current file.
+
+[[blocks]]
+context = "packages"
+name = "macOS package"
+description = "Software package for macOS"
+snippet = """
+path: ${1:{base}/macos/software/app.yml}
+  self_service: ${2:true}
+  setup_experience: ${3:false}
+  categories:
+    - ${4:Productivity}"""
+
+[[blocks]]
+context = "packages"
+name = "Windows package"
+description = "Software package for Windows"
+snippet = """
+path: ${1:{base}/windows/software/app.yml}
+  self_service: ${2:true}
+  labels_include_any:
+    - "x86-based Windows hosts"
+  categories:
+    - ${3:Productivity}"""
+
+[[blocks]]
+context = "packages"
+name = "Linux package (deb)"
+description = "Software package for Debian/Ubuntu"
+snippet = """
+path: ${1:{base}/linux/software/app-deb.yml}
+  self_service: ${2:true}
+  labels_include_any:
+    - Debian-based Linux hosts
+  categories:
+    - ${3:Productivity}"""
+
+# --- app_store_apps blocks ---
+
+[[blocks]]
+context = "app_store_apps"
+name = "iOS app"
+description = "App Store app for iOS"
+snippet = """
+app_store_id: "${1:618783545}"
+  display_name: "${2:Slack}"
+  self_service: ${3:true}
+  setup_experience: ${4:true}
+  platform: ios
+  categories:
+    - ${5:Communication}"""
+
+[[blocks]]
+context = "app_store_apps"
+name = "iPadOS app"
+description = "App Store app for iPadOS"
+snippet = """
+app_store_id: "${1:618783545}"
+  display_name: "${2:Slack}"
+  self_service: ${3:true}
+  setup_experience: ${4:true}
+  platform: ipados
+  categories:
+    - ${5:Productivity}"""
+
+[[blocks]]
+context = "app_store_apps"
+name = "Android app"
+description = "App Store app for Android"
+snippet = """
+app_store_id: "${1:com.Slack}"
+  display_name: "${2:Slack}"
+  self_service: ${3:true}
+  platform: android"""
+
+# ============================================================================
+# Globs — pattern suggestions for `paths:` values
+#
+# `context` matches against the parent context path from find_parent_context().
+#
+# Two directory conventions exist:
+#   platforms/<os>/   (fleetctl new / swan-airlines style)
+#   lib/<os>/         (older repos / fleet it-and-security style)
+#
+# The path prefix (../, ./, etc.) depends on the file location relative to
+# the repo root. At runtime, the LSP should:
+#   1. Detect whether the repo uses platforms/ or lib/
+#   2. Compute the relative prefix from the current file
+#   3. Assemble: {prefix}{base_dir}/{os}/{subdir}/{glob}
+#
+# In this file, patterns use `{root}` as a placeholder for the repo-relative
+# path to the lib directory. The LSP replaces it at runtime.
+# Fallback if detection fails: `../platforms/`
+# ============================================================================
+
+# Patterns use `{base}` as a placeholder for the repo's lib directory.
+# At runtime the LSP detects whether the repo uses `platforms/` or `lib/`
+# and computes the relative path from the current file.
+# Example: editing fleets/workstations.yml → `{base}` = `../platforms`
+#          editing default.yml             → `{base}` = `./platforms`
+#          editing teams/ops.yml           → `{base}` = `../lib`
+
+# --- apple_settings / macos_settings ---
+
+[[globs]]
+context = "apple_settings"
+pattern = "{base}/macos/configuration-profiles/*.mobileconfig"
+description = "macOS configuration profiles"
+
+[[globs]]
+context = "apple_settings"
+pattern = "{base}/macos/declaration-profiles/*.json"
+description = "macOS declaration profiles (DDM)"
+
+[[globs]]
+context = "apple_settings"
+pattern = "{base}/ios/configuration-profiles/*.mobileconfig"
+description = "iOS configuration profiles"
+
+[[globs]]
+context = "apple_settings"
+pattern = "{base}/ios/declaration-profiles/*.json"
+description = "iOS declaration profiles (DDM)"
+
+[[globs]]
+context = "apple_settings"
+pattern = "{base}/ipados/configuration-profiles/*.mobileconfig"
+description = "iPadOS configuration profiles"
+
+[[globs]]
+context = "apple_settings"
+pattern = "{base}/ipados/declaration-profiles/*.json"
+description = "iPadOS declaration profiles (DDM)"
+
+# --- windows_settings ---
+
+[[globs]]
+context = "windows_settings"
+pattern = "{base}/windows/configuration-profiles/*.xml"
+description = "Windows configuration profiles"
+
+# --- android_settings ---
+
+[[globs]]
+context = "android_settings"
+pattern = "{base}/android/configuration-profiles/*"
+description = "Android configuration profiles"
+
+[[globs]]
+context = "android_settings"
+pattern = "{base}/android/managed-app-configurations/*"
+description = "Android managed app configurations"
+
+# --- scripts ---
+
+[[globs]]
+context = "scripts"
+pattern = "{base}/macos/scripts/*.sh"
+description = "macOS shell scripts"
+
+[[globs]]
+context = "scripts"
+pattern = "{base}/windows/scripts/*.ps1"
+description = "Windows PowerShell scripts"
+
+[[globs]]
+context = "scripts"
+pattern = "{base}/linux/scripts/*.sh"
+description = "Linux shell scripts"
+
+# --- policies ---
+
+[[globs]]
+context = "policies"
+pattern = "{base}/macos/policies/*.yml"
+description = "macOS policies"
+
+[[globs]]
+context = "policies"
+pattern = "{base}/windows/policies/*.yml"
+description = "Windows policies"
+
+[[globs]]
+context = "policies"
+pattern = "{base}/linux/policies/*.yml"
+description = "Linux policies"
+
+# --- reports / queries ---
+
+[[globs]]
+context = "reports"
+pattern = "{base}/all/reports/*.yml"
+description = "Cross-platform reports"
+
+[[globs]]
+context = "reports"
+pattern = "{base}/macos/reports/*.yml"
+description = "macOS reports"
+
+[[globs]]
+context = "reports"
+pattern = "{base}/windows/reports/*.yml"
+description = "Windows reports"
+
+[[globs]]
+context = "reports"
+pattern = "{base}/linux/reports/*.yml"
+description = "Linux reports"
+
+# --- labels ---
+
+[[globs]]
+context = "labels"
+pattern = "./labels/*.yml"
+description = "Label definitions"
