@@ -103,7 +103,26 @@ impl DeprecationRegistry {
                 old_key,
                 context_path: cp,
                 ..
-            } => *old_key == key && *cp == context_path,
+            } => {
+                if *old_key != key {
+                    return false;
+                }
+                // Context matching:
+                // - Empty registry context → match only top-level (empty actual path)
+                // - Non-empty registry context → match exact or as suffix
+                //   (e.g., registry "controls" matches actual "controls" or
+                //   "something.controls", and also "controls.macos_settings")
+                if *cp == "*" {
+                    // Wildcard: match in any context
+                    true
+                } else if cp.is_empty() {
+                    // Empty: match only at top level
+                    context_path.is_empty()
+                } else {
+                    // Specific context: match exact or as parent prefix
+                    *cp == context_path || context_path.starts_with(&format!("{}.", cp))
+                }
+            }
             _ => false,
         })
     }
@@ -152,7 +171,7 @@ impl DeprecationRegistry {
 // Dormant version constant — change this to activate deprecations
 // ---------------------------------------------------------------------------
 
-/// Version when deprecation warnings start (grace period).
+/// Version when deprecation warnings start for v4.80.1 renames.
 fn deprecated_version() -> Version {
     Version::new(4, 80, 1)
 }
@@ -162,6 +181,13 @@ fn deprecated_version() -> Version {
 /// Update when Fleet confirms the mandatory cutover version.
 fn mandatory_version() -> Version {
     Version::new(4, 88, 0)
+}
+
+/// Version when the controls key renames were introduced (PR #42968).
+/// macos_settings → apple_settings, custom_settings → configuration_profiles,
+/// macos_setup → setup_experience, and sub-key renames.
+fn controls_rename_version() -> Version {
+    Version::new(4, 90, 0)
 }
 
 /// Global deprecation registry.
@@ -220,6 +246,105 @@ pub static DEPRECATION_REGISTRY: Lazy<DeprecationRegistry> = Lazy::new(|| {
                 error_in: Some(mandatory_version()),
                 removed_in: None,
                 description: "The 'no-team.yml' file is being renamed to 'unassigned.yml'",
+                file_patterns: &[],
+            },
+            // ── Controls key renames (PR #42968) ────────────────────
+            // macos_settings -> apple_settings
+            Deprecation {
+                id: "macos-settings-to-apple-settings",
+                kind: DeprecationKind::KeyRename {
+                    old_key: "macos_settings",
+                    new_key: "apple_settings",
+                    context_path: "controls",
+                },
+                deprecated_in: controls_rename_version(),
+                error_in: None,
+                removed_in: None,
+                description: "The 'macos_settings' key is being renamed to 'apple_settings'",
+                file_patterns: &[],
+            },
+            // custom_settings -> configuration_profiles (under any *_settings)
+            Deprecation {
+                id: "custom-settings-to-configuration-profiles",
+                kind: DeprecationKind::KeyRename {
+                    old_key: "custom_settings",
+                    new_key: "configuration_profiles",
+                    context_path: "*",
+                },
+                deprecated_in: controls_rename_version(),
+                error_in: None,
+                removed_in: None,
+                description: "The 'custom_settings' key is being renamed to 'configuration_profiles'",
+                file_patterns: &[],
+            },
+            // macos_setup -> setup_experience
+            Deprecation {
+                id: "macos-setup-to-setup-experience",
+                kind: DeprecationKind::KeyRename {
+                    old_key: "macos_setup",
+                    new_key: "setup_experience",
+                    context_path: "controls",
+                },
+                deprecated_in: controls_rename_version(),
+                error_in: None,
+                removed_in: None,
+                description: "The 'macos_setup' key is being renamed to 'setup_experience'",
+                file_patterns: &[],
+            },
+            // enable_release_device_manually -> apple_enable_release_device_manually
+            Deprecation {
+                id: "enable-release-device-to-apple-prefix",
+                kind: DeprecationKind::KeyRename {
+                    old_key: "enable_release_device_manually",
+                    new_key: "apple_enable_release_device_manually",
+                    context_path: "*",
+                },
+                deprecated_in: controls_rename_version(),
+                error_in: None,
+                removed_in: None,
+                description: "The 'enable_release_device_manually' key is being renamed to 'apple_enable_release_device_manually'",
+                file_patterns: &[],
+            },
+            // macos_setup_assistant -> apple_setup_assistant
+            Deprecation {
+                id: "macos-setup-assistant-to-apple",
+                kind: DeprecationKind::KeyRename {
+                    old_key: "macos_setup_assistant",
+                    new_key: "apple_setup_assistant",
+                    context_path: "*",
+                },
+                deprecated_in: controls_rename_version(),
+                error_in: None,
+                removed_in: None,
+                description: "The 'macos_setup_assistant' key is being renamed to 'apple_setup_assistant'",
+                file_patterns: &[],
+            },
+            // script -> macos_script (under setup_experience / macos_setup)
+            Deprecation {
+                id: "script-to-macos-script",
+                kind: DeprecationKind::KeyRename {
+                    old_key: "script",
+                    new_key: "macos_script",
+                    context_path: "*",
+                },
+                deprecated_in: controls_rename_version(),
+                error_in: None,
+                removed_in: None,
+                description: "The 'script' key under setup_experience is being renamed to 'macos_script'",
+                file_patterns: &[],
+            },
+            // manual_agent_install -> macos_manual_agent_install
+            Deprecation {
+                id: "manual-agent-install-to-macos-prefix",
+                kind: DeprecationKind::KeyRename {
+                    old_key: "manual_agent_install",
+                    new_key: "macos_manual_agent_install",
+                    context_path: "*",
+                },
+                deprecated_in: controls_rename_version(),
+                error_in: None,
+                removed_in: None,
+                description: "The 'manual_agent_install' key is being renamed to 'macos_manual_agent_install'",
                 file_patterns: &[],
             },
         ],

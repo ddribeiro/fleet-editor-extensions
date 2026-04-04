@@ -1025,6 +1025,82 @@ pub static FIELD_DOCS: Lazy<HashMap<&'static str, FieldDoc>> = Lazy::new(|| {
     );
 
     // =========================================================================
+    // setup_experience (formerly macos_setup) — PR #42968
+    // =========================================================================
+    m.insert(
+        "controls.setup_experience",
+        FieldDoc {
+            name: "setup_experience",
+            description: "Configuration for the out-of-the-box setup experience (formerly `macos_setup`). Controls bootstrap packages, end user authentication, and setup scripts.",
+            valid_values: None,
+            example: Some("setup_experience:\n  bootstrap_package: https://example.org/bootstrap.pkg\n  enable_end_user_authentication: true\n  apple_setup_assistant: ./dep-profile.json\n  macos_script: ./post_setup.sh"),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+    m.insert(
+        "setup_experience",
+        FieldDoc {
+            name: "setup_experience",
+            description: "Configuration for the out-of-the-box setup experience (formerly `macos_setup`). Controls bootstrap packages, end user authentication, and setup scripts.",
+            valid_values: None,
+            example: Some("setup_experience:\n  bootstrap_package: https://example.org/bootstrap.pkg\n  enable_end_user_authentication: true"),
+            required: false,
+            field_type: "object",
+            cli_hint: None,
+        },
+    );
+    m.insert(
+        "apple_enable_release_device_manually",
+        FieldDoc {
+            name: "apple_enable_release_device_manually",
+            description: "When enabled, you're responsible for sending the `DeviceConfigured` command. End users stay in Setup Assistant until sent. Applies to Apple (macOS, iOS, iPadOS) hosts enrolled via ABM. Formerly `enable_release_device_manually`.",
+            valid_values: Some(&["true", "false"]),
+            example: Some("apple_enable_release_device_manually: false"),
+            required: false,
+            field_type: "boolean",
+            cli_hint: None,
+        },
+    );
+    m.insert(
+        "apple_setup_assistant",
+        FieldDoc {
+            name: "apple_setup_assistant",
+            description: "Path to a custom automatic enrollment (ADE) profile (.json). Applies to macOS and iOS/iPadOS hosts. Formerly `macos_setup_assistant`.",
+            valid_values: None,
+            example: Some("apple_setup_assistant: ./setup_assistant.json"),
+            required: false,
+            field_type: "string (file path)",
+            cli_hint: None,
+        },
+    );
+    m.insert(
+        "macos_script",
+        FieldDoc {
+            name: "macos_script",
+            description: "Path to a custom setup script to run after the host is first set up. Applies to macOS only. Formerly `script` under `macos_setup`.",
+            valid_values: None,
+            example: Some("macos_script: ./post_setup.sh"),
+            required: false,
+            field_type: "string (file path)",
+            cli_hint: None,
+        },
+    );
+    m.insert(
+        "macos_manual_agent_install",
+        FieldDoc {
+            name: "macos_manual_agent_install",
+            description: "Whether Fleet's agent (fleetd) will be installed as part of setup experience. Applies to macOS only. Formerly `manual_agent_install`.",
+            valid_values: Some(&["true", "false"]),
+            example: Some("macos_manual_agent_install: false"),
+            required: false,
+            field_type: "boolean",
+            cli_hint: None,
+        },
+    );
+
+    // =========================================================================
     // Team settings fields
     // =========================================================================
     m.insert(

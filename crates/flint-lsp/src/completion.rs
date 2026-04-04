@@ -884,8 +884,26 @@ fn complete_controls_section() -> Vec<CompletionItem> {
             "Require disk encryption on hosts",
             false,
         ),
-        ("macos_settings", "macOS MDM configuration profiles", false),
-        ("macos_setup", "macOS automatic enrollment settings", false),
+        (
+            "apple_settings",
+            "Apple MDM configuration profiles (replaces macos_settings)",
+            false,
+        ),
+        (
+            "macos_settings",
+            "macOS MDM configuration profiles (deprecated, use apple_settings)",
+            false,
+        ),
+        (
+            "setup_experience",
+            "Setup experience settings (replaces macos_setup)",
+            false,
+        ),
+        (
+            "macos_setup",
+            "macOS setup (deprecated, use setup_experience)",
+            false,
+        ),
         ("macos_updates", "macOS software update requirements", false),
         ("ios_updates", "iOS software update requirements", false),
         (
