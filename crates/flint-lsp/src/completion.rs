@@ -43,6 +43,8 @@ enum CompletionContext {
     DeviceSettingsSection,
     /// Inside configuration_profiles array item (suggests path/paths)
     ConfigurationProfileField,
+    /// Inside setup_experience (formerly macos_setup)
+    SetupExperienceField,
     /// Inside controls.scripts array item
     ScriptField,
     /// Inside team_settings section
@@ -147,6 +149,9 @@ pub fn complete_at_with_context(
         CompletionContext::MacOSCustomSettingField => complete_custom_setting_fields(line, col_idx),
         CompletionContext::WindowsCustomSettingField => {
             complete_custom_setting_fields(line, col_idx)
+        }
+        CompletionContext::SetupExperienceField => {
+            completions_from_data("setup_experience", line, col_idx)
         }
         CompletionContext::DeviceSettingsSection => complete_device_settings_section(),
         CompletionContext::ConfigurationProfileField => complete_path_ref_fields(),
@@ -465,6 +470,9 @@ fn context_path_to_completion_context(path: Option<&str>) -> CompletionContext {
             } else {
                 CompletionContext::Unknown
             }
+        }
+        Some(p) if p.contains("setup_experience") || p.contains("macos_setup") => {
+            CompletionContext::SetupExperienceField
         }
         Some(p) if p.contains("controls.scripts") => CompletionContext::ScriptField,
         Some(p) if p.starts_with("team_settings") => CompletionContext::TeamSettingsSection,

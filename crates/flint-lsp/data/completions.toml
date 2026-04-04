@@ -209,6 +209,48 @@ context = "app_store_apps"
 name = "labels_exclude_any"
 description = "Don't install on hosts with these labels"
 
+# --- setup_experience (formerly macos_setup) ---
+
+[[fields]]
+context = "setup_experience"
+name = "bootstrap_package"
+description = "URL to bootstrap package (macOS only)"
+
+[[fields]]
+context = "setup_experience"
+name = "enable_end_user_authentication"
+description = "Require end user authentication during setup (all platforms)"
+
+[[fields]]
+context = "setup_experience"
+name = "apple_enable_release_device_manually"
+description = "Hold device in Setup Assistant until DeviceConfigured command (Apple ABM)"
+
+[[fields]]
+context = "setup_experience"
+name = "apple_setup_assistant"
+description = "Path to custom ADE enrollment profile (.json)"
+
+[[fields]]
+context = "setup_experience"
+name = "macos_script"
+description = "Path to setup script run after first setup (macOS only)"
+
+[[fields]]
+context = "setup_experience"
+name = "macos_manual_agent_install"
+description = "Skip automatic fleetd install during setup (macOS only)"
+
+[[fields]]
+context = "setup_experience"
+name = "lock_end_user_info"
+description = "Lock Account Name and Full Name in macOS Setup Assistant"
+
+[[fields]]
+context = "setup_experience"
+name = "require_all_software"
+description = "Cancel setup if any software install fails (macOS only)"
+
 # --- configuration_profiles ---
 
 [[fields]]
