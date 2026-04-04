@@ -533,12 +533,16 @@ fn strip_sql_comments(query: &str) -> String {
 
     while i < len {
         if i + 1 < len && bytes[i] == b'/' && bytes[i + 1] == b'*' {
-            // Block comment — skip until */
+            // Block comment — skip until */ (or end of string if unterminated)
             i += 2;
             while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
                 i += 1;
             }
-            i += 2; // skip */
+            if i + 1 < len {
+                i += 2; // skip */
+            } else {
+                i = len; // unterminated comment — consume rest of input
+            }
             result.push(' '); // replace comment with space to preserve token boundaries
         } else if i + 1 < len && bytes[i] == b'-' && bytes[i + 1] == b'-' {
             // Line comment — skip until newline
@@ -940,4 +944,63 @@ fn check_query_syntax(query: &str, item_name: &str, file: &Path) -> Vec<LintErro
     // Note: Trailing semicolons in queries are common and OK - don't warn about them
 
     errors
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strip_comments_block() {
+        let sql = "SELECT 1 /* comment */ FROM t";
+        assert_eq!(strip_sql_comments(sql), "SELECT 1   FROM t");
+    }
+
+    #[test]
+    fn strip_comments_line() {
+        let sql = "SELECT 1 -- comment\nFROM t";
+        assert_eq!(strip_sql_comments(sql), "SELECT 1 \nFROM t");
+    }
+
+    #[test]
+    fn strip_comments_unterminated_block() {
+        // Unterminated block comment — should not panic, consumes rest of input
+        let sql = "SELECT 1 /* no closing";
+        let result = strip_sql_comments(sql);
+        assert_eq!(result, "SELECT 1  ");
+        assert!(!result.contains("no closing"));
+    }
+
+    #[test]
+    fn strip_comments_apostrophe_in_comment() {
+        // The apostrophe in "organization's" should be stripped with the comment
+        let sql = "SELECT 1 /*organization's decision*/";
+        let result = strip_sql_comments(sql);
+        assert!(
+            !result.contains('\''),
+            "Apostrophe should be stripped: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn strip_string_literals_preserves_keywords() {
+        let sql = "SELECT 1 WHERE name = 'DROP TABLE'";
+        let result = strip_sql_string_literals(sql);
+        assert!(
+            !result.contains("DROP TABLE"),
+            "Keywords inside strings should be blanked"
+        );
+        assert!(result.contains("SELECT"));
+    }
+
+    #[test]
+    fn strip_string_literals_drop_box() {
+        let sql = "SELECT 1 WHERE path NOT LIKE '%Drop Box%'";
+        let result = strip_sql_string_literals(sql);
+        assert!(
+            !result.contains("Drop"),
+            "Drop inside string literal should be blanked"
+        );
+    }
 }

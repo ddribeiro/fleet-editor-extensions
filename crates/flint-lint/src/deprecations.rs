@@ -325,7 +325,7 @@ pub static DEPRECATION_REGISTRY: Lazy<DeprecationRegistry> = Lazy::new(|| {
                 kind: DeprecationKind::KeyRename {
                     old_key: "script",
                     new_key: "macos_script",
-                    context_path: "*",
+                    context_path: "controls",
                 },
                 deprecated_in: controls_rename_version(),
                 error_in: None,

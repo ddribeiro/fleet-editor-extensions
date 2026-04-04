@@ -175,7 +175,9 @@ pub fn complete_at_with_context(
             context_type,
         ),
         CompletionContext::SlugValue => complete_fma_slugs(),
-        CompletionContext::GlobValue { parent_context } => complete_glob_patterns(&parent_context),
+        CompletionContext::GlobValue { parent_context } => {
+            complete_glob_patterns(&parent_context, current_file, workspace_root)
+        }
         CompletionContext::LabelValue => complete_common_labels(),
         CompletionContext::CategoryValue => complete_common_categories(),
         CompletionContext::SqlContext { platform } => complete_osquery_tables(platform.as_deref()),
@@ -1138,10 +1140,13 @@ fn complete_fma_slugs() -> Vec<CompletionItem> {
 
 /// Suggest glob patterns for `paths:` values (data-driven from completions.toml).
 ///
-/// Matches the parent context against TOML glob entries. The `{base}` placeholder
-/// is left as-is for now — runtime resolution requires workspace root knowledge
-/// which will be added when the LSP passes file context to completions.
-fn complete_glob_patterns(parent_context: &str) -> Vec<CompletionItem> {
+/// Resolves the `{base}` placeholder using the current file path and workspace
+/// root to compute the correct relative path prefix (e.g., `../platforms`).
+fn complete_glob_patterns(
+    parent_context: &str,
+    current_file: Option<&Path>,
+    workspace_root: Option<&Path>,
+) -> Vec<CompletionItem> {
     // Map parent_context to TOML context keys
     let context_key =
         if parent_context.contains("apple_settings") || parent_context.contains("macos_settings") {
@@ -1177,8 +1182,12 @@ fn complete_glob_patterns(parent_context: &str) -> Vec<CompletionItem> {
         .iter()
         .enumerate()
         .map(|(i, glob)| {
-            // TODO: resolve {base} using workspace root when available
-            let pattern = glob.pattern.replace("{base}", "../platforms");
+            let pattern = match (current_file, workspace_root) {
+                (Some(file), Some(root)) => {
+                    super::completion_data::resolve_base(&glob.pattern, file, root)
+                }
+                _ => glob.pattern.replace("{base}", "../platforms"),
+            };
             let mut item = CompletionItem {
                 label: pattern.clone(),
                 kind: Some(CompletionItemKind::VALUE),
