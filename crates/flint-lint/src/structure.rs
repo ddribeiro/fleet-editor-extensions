@@ -584,6 +584,8 @@ fn agent_options_inline() -> SchemaNode {
         ("overrides", open_mapping()),
         ("command_line_flags", open_mapping()),
         ("update_channels", open_mapping()),
+        ("script_execution_timeout", open_mapping()),
+        ("extensions", open_mapping()),
     ])
 }
 
